@@ -24,6 +24,12 @@ def sync_account(
 ):
     account = _check_ownership(account_id, current_user, db)
     result = sync_instagram(db, account)
+    if not result.get("ok"):
+        reason = result.get("reason", "sync_error")
+        status_code = 400
+        if "token" in reason:
+            status_code = 401
+        raise HTTPException(status_code=status_code, detail=result)
     return result
 
 

@@ -66,13 +66,16 @@ export function App() {
 
   async function syncAccount() {
     if (!selectedAccountId) return;
-    const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
-    if (data.ok) {
+    try {
+      const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
       setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0}`);
-    } else {
-      setMessage(`Sync falló: ${data.reason || 'unknown_error'}`);
+      await loadDashboard(selectedAccountId);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      const reason = detail?.reason || err?.response?.data?.reason || 'unknown_error';
+      const metaDetail = detail?.detail ? ` | meta: ${String(detail.detail).slice(0, 220)}` : '';
+      setMessage(`Sync falló: ${reason}${metaDetail}`);
     }
-    await loadDashboard(selectedAccountId);
   }
 
   async function loadDashboard(accountId: number) {
