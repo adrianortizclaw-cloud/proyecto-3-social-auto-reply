@@ -83,6 +83,17 @@ export function App() {
     setDashboard(data);
   }
 
+  async function generateReply(commentId: number) {
+    try {
+      const { data } = await api.post(`/api/replies/generate/${commentId}`);
+      setMessage(`Respuesta generada ✅ status:${data.status} intent:${data.intent}`);
+      if (selectedAccountId) await loadDashboard(selectedAccountId);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      setMessage(`No se pudo generar respuesta: ${typeof detail === 'string' ? detail : JSON.stringify(detail || {})}`);
+    }
+  }
+
   if (!token) {
     return (
       <div className="login-wrap">
@@ -184,7 +195,19 @@ export function App() {
           </article>
           <article>
             <h2>Comentarios</h2>
-            <ul className="list">{comments.map((x: any) => <li key={x.id}>{x.text}<div className="small">{x.created_at}</div></li>)}</ul>
+            <ul className="list">
+              {comments.map((x: any) => (
+                <li key={`${x.id}-${x.comment_id ?? 'na'}`}>
+                  <div>{x.text}</div>
+                  <div className="small">{x.created_at}</div>
+                  {x.comment_id ? (
+                    <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => generateReply(Number(x.comment_id))}>
+                      Generar respuesta
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           </article>
           <article>
             <h2>Respuestas</h2>

@@ -84,7 +84,13 @@ def get_dashboard(
             {"id": r.platform_post_id, "text": r.caption or "", "created_at": r.published_at.isoformat()} for r in latest_reels
         ],
         "latest_comments": [
-            {"id": c.platform_comment_id, "text": c.text, "created_at": c.created_at.isoformat()} for c in latest_comments
+            {
+                "id": c.platform_comment_id,
+                "comment_id": c.id,
+                "text": c.text,
+                "created_at": c.created_at.isoformat(),
+            }
+            for c in latest_comments
         ],
         "latest_replies": [
             {"id": str(x.id), "text": x.text, "created_at": x.created_at.isoformat()} for x in latest_replies
