@@ -196,17 +196,27 @@ export function App() {
           <article>
             <h2>Comentarios</h2>
             <ul className="list">
-              {comments.map((x: any) => (
-                <li key={`${x.id}-${x.comment_id ?? 'na'}`}>
-                  <div>{x.text}</div>
-                  <div className="small">{x.created_at}</div>
-                  {x.comment_id ? (
-                    <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => generateReply(Number(x.comment_id))}>
-                      Generar respuesta
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+              {comments.map((x: any) => {
+                const internalCommentId = x.comment_id ?? (Number.isFinite(Number(x.id)) ? Number(x.id) : null);
+                return (
+                  <li key={`${x.id}-${x.comment_id ?? 'na'}`}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div>{x.text}</div>
+                        <div className="small">{x.created_at}</div>
+                      </div>
+                      <button
+                        className="btn ghost"
+                        onClick={() => internalCommentId && generateReply(Number(internalCommentId))}
+                        disabled={!internalCommentId}
+                        title={internalCommentId ? 'Generar respuesta para este comentario' : 'Falta comment_id interno; haz rebuild y sync'}
+                      >
+                        Generar respuesta
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </article>
           <article>
