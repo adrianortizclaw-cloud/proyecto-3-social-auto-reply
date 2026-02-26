@@ -26,14 +26,16 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
     except Exception:
         return {"ok": False, "reason": "invalid_encrypted_token"}
 
-    # In this MVP we store ig_user_id in account_handle (numeric ID), as provided by Meta tooling.
-    ig_user_id = account.account_handle.strip().lstrip("@")
-    if not ig_user_id.isdigit():
+    # account_handle can be either IG User ID or Facebook Page ID (numeric).
+    candidate_id = account.account_handle.strip().lstrip("@")
+    if not candidate_id.isdigit():
         return {
             "ok": False,
-            "reason": "account_handle_must_be_ig_user_id",
-            "hint": "Use the numeric Instagram User ID from Meta tools",
+            "reason": "account_handle_must_be_numeric_id",
+            "hint": "Use Instagram User ID or Facebook Page ID (numeric)",
         }
+
+    ig_user_id = candidate_id
 
     created_posts = 0
     created_comments = 0
@@ -49,7 +51,35 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
         )
 
         if media_res.status_code != 200:
-            return {"ok": False, "reason": "graph_media_error", "detail": media_res.text}
+            # Common case: candidate_id is a Facebook Page ID, not IG User ID.
+            # Try resolving IG account from page and retry.
+            retry_done = False
+            try:
+                page_res = client.get(
+                    f"{GRAPH_BASE}/{candidate_id}",
+                    params={"fields": "instagram_business_account", "access_token": token},
+                )
+                if page_res.status_code == 200:
+                    page_data = page_res.json() or {}
+                    ig_obj = page_data.get("instagram_business_account") or {}
+                    resolved_ig_id = str(ig_obj.get("id") or "").strip()
+                    if resolved_ig_id.isdigit():
+                        ig_user_id = resolved_ig_id
+                        media_res = client.get(
+                            f"{GRAPH_BASE}/{ig_user_id}/media",
+                            params={
+                                "fields": "id,caption,timestamp,media_type",
+                                "limit": 10,
+                                "access_token": token,
+                            },
+                        )
+                        retry_done = True
+            except Exception:
+                pass
+
+            if media_res.status_code != 200:
+                suffix = " (retried via page->ig resolution)" if retry_done else ""
+                return {"ok": False, "reason": "graph_media_error", "detail": f"{media_res.text}{suffix}"}
 
         media_items = media_res.json().get("data", [])
 

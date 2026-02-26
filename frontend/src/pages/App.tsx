@@ -129,7 +129,7 @@ export function App() {
               <option value="facebook">Facebook</option>
               <option value="x">X</option>
             </select>
-            <input className="input" placeholder="Ej: 17841480748207923" value={handle} onChange={(e) => setHandle(e.target.value)} />
+            <input className="input" placeholder="IG User ID o Page ID (numérico)" value={handle} onChange={(e) => setHandle(e.target.value)} />
           </div>
 
           <label className="label">Prompt de personalidad</label>
