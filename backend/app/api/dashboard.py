@@ -5,6 +5,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import User, SocialAccount, Post, Comment, Reply
 from app.services.instagram_sync import sync_instagram
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -25,11 +26,13 @@ def sync_account(
     account = _check_ownership(account_id, current_user, db)
     result = sync_instagram(db, account)
     if not result.get("ok"):
+        log_action(db, action="sync_failed", user_id=current_user.id, entity_type="social_account", entity_id=str(account.id), detail=str(result))
         reason = result.get("reason", "sync_error")
         status_code = 400
         if "token" in reason:
             status_code = 401
         raise HTTPException(status_code=status_code, detail=result)
+    log_action(db, action="sync_success", user_id=current_user.id, entity_type="social_account", entity_id=str(account.id), detail=str(result))
     return result
 
 

@@ -12,6 +12,7 @@ from app.services.meta_oauth_service import (
     exchange_code_for_long_lived_token,
     upsert_oauth_connection,
 )
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/api/meta", tags=["meta-oauth"])
 
@@ -27,6 +28,7 @@ def oauth_start(
         raise HTTPException(status_code=404, detail="Account not found")
 
     state = create_oauth_state(db, account)
+    log_action(db, action="oauth_start", user_id=current_user.id, entity_type="social_account", entity_id=str(account.id))
     return {"url": build_oauth_url(account_id, state)}
 
 
@@ -51,7 +53,9 @@ def oauth_callback(
             page_id=page_id,
             ig_business_account_id=ig_business_account_id,
         )
+        log_action(db, action="oauth_connected", entity_type="social_account", entity_id=str(state_row.social_account_id), detail=f"page_id={page_id},ig_id={ig_business_account_id}")
     except Exception as exc:
+        log_action(db, action="oauth_failed", entity_type="social_account", entity_id=str(state_row.social_account_id), detail=str(exc))
         raise HTTPException(status_code=400, detail=f"oauth_callback_failed: {exc}")
 
     return {
