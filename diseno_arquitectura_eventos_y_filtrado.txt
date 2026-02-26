@@ -1,0 +1,105 @@
+Diseño de arquitectura - Automatización de respuestas en redes (Proyecto 3)
+Fecha: 2026-02-26
+
+Objetivo de esta nota
+- Documentar cómo resolver activación por nuevos comentarios, gestión multi-cuenta/multi-personalidad, coherencia con publicaciones y filtrado de comentarios relevantes.
+- Solo documentación conceptual (sin implementación en este paso).
+
+1) Activación del sistema: webhook + polling (híbrido)
+-----------------------------------------------------
+Recomendación: combinar ambos mecanismos para robustez.
+
+A. Webhooks (primario)
+- Se recibe evento en tiempo real cuando entra comentario/DM.
+- Ventajas: menor latencia, menor coste de llamadas API.
+- Flujo: evento entrante -> normalización -> guardado -> cola de procesamiento.
+
+B. Polling cada 3 minutos (respaldo)
+- Un job programado consulta comentarios recientes por cuenta/canal.
+- Función: cubrir pérdida de eventos o fallos temporales de webhook.
+- Flujo: cron/scheduler -> consulta incremental (desde último cursor) -> normalización -> cola.
+
+Patrón operativo recomendado
+- ingest_webhook(): procesa eventos push
+- poller_cron_3min(): revisa pendientes/no vistos
+- ambos escriben en la misma cola para que el pipeline sea único
+
+2) Multi-cuenta y multi-personalidad
+------------------------------------
+Necesidad
+- Gestionar varias cuentas de clientes y diferentes tonos de marca.
+
+Modelo de configuración por cuenta (ejemplo)
+- account_id
+- platform (instagram/facebook/x)
+- access_token_encrypted
+- brand_name
+- voice_prompt (personalidad)
+- safety_rules
+- language
+- timezone
+- mode (auto / semi-auto / manual)
+
+Regla clave
+- Cada comentario debe resolverse usando su account_id.
+- El prompt y políticas aplicadas dependen de esa cuenta.
+
+3) Coherencia con la publicación original
+-----------------------------------------
+Problema
+- Responder sin contexto genera respuestas genéricas o incoherentes.
+
+Contexto mínimo que debe leer el agente antes de responder
+- Texto/caption del post
+- Tipo de publicación (promo, anuncio, incidencia, etc.)
+- Historial corto del hilo (comentarios previos)
+- FAQs y reglas de la marca
+
+Pipeline recomendado
+1. classify_comment (intención + riesgo)
+2. fetch_post_context(post_id)
+3. build_response(account_prompt + post_context + policy)
+4. confidence_score
+5. decisión:
+   - si confianza alta y no sensible -> responder
+   - si baja confianza o tema sensible -> escalar a humano
+
+4) Filtrado de comentarios relevantes
+-------------------------------------
+Objetivo
+- Priorizar lo importante para negocio y reputación.
+
+Sistema de relevance score (0-100) con reglas iniciales
+- +30: intención de compra / precio / reserva
+- +25: queja con posible impacto reputacional
+- +20: urgencia explícita
+- -40: spam evidente
+- +15: usuario de alto valor/interacción
+
+Vistas recomendadas en panel
+- 🔥 Relevantes
+- 💰 Oportunidades comerciales
+- ⚠️ Riesgo reputacional
+- 🤖 Auto-resueltos
+
+5) Arquitectura técnica mínima (MVP)
+------------------------------------
+- Backend API: FastAPI
+- Base de datos: Postgres
+- Cola: Redis + workers
+- Scheduler: job cada 3 minutos
+- LLM: OpenAI (clasificación + respuesta)
+- Panel: Next.js o Retool
+
+6) Modos operativos para producción
+-----------------------------------
+- Auto: publica directamente si confianza >= umbral
+- Semi-auto: genera borrador y requiere aprobación
+- Manual: solo sugerencias
+
+Recomendación de lanzamiento
+- Empezar en modo semi-auto para reducir riesgo y entrenar calidad.
+
+Estado
+- Documentación completada.
+- Implementación pospuesta (a petición del usuario).

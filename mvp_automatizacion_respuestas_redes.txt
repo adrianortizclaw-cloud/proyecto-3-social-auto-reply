@@ -1,0 +1,121 @@
+MVP - Automatización de contestación de mensajes y comentarios en redes sociales
+Fecha: 2026-02-26
+
+Visión
+- Automatizar respuestas en Instagram, Facebook y X (Twitter) para empresas (hoteles, gasolineras, pymes, influencers) manteniendo tono de marca, rapidez y control de riesgo.
+
+Propuesta de producto
+- “Asistente social que responde comentarios/DMs en minutos, escala casos sensibles a humano y genera más leads sin aumentar plantilla.”
+
+Objetivo del MVP (hoy + próximos días)
+- Conectar cuentas sociales
+- Leer comentarios/DMs entrantes
+- Clasificar intención
+- Generar respuesta con IA + contexto del negocio
+- Publicar respuesta automática (o dejar borrador para aprobación)
+- Guardar trazabilidad y métricas básicas
+
+Alcance MVP (v1)
+1) Canales iniciales
+- Instagram + Facebook primero (Meta Graph API)
+- X como fase 2 (por cambios frecuentes de API/coste)
+
+2) Tipos de mensajes
+- Comentarios públicos
+- Mensajes directos (DM) básicos
+
+3) Modos operativos
+- Auto: responde directamente
+- Semi-auto: sugiere borrador y humano aprueba
+- Manual-asistido: solo sugerencias
+
+4) Motor de respuesta
+- Prompt con:
+  - tono de marca
+  - FAQs
+  - horarios
+  - precios base/promos
+  - reglas de negocio
+- Plantillas para casos repetidos (horario, ubicación, disponibilidad, precios)
+
+5) Moderación y seguridad
+- Bloquear/escala automática si detecta:
+  - insultos / hate / spam
+  - reclamaciones legales
+  - salud/seguridad
+  - temas sensibles de reputación
+- Etiquetas: [consulta], [queja], [precio], [reserva], [spam], [riesgo]
+
+6) Escalado a humano
+- Si confianza baja o tema sensible -> estado “PENDIENTE HUMANO”
+- Notificación en panel
+
+7) Panel mínimo
+- Inbox unificada
+- Estado por conversación: respondido / pendiente / escalado
+- Filtros por canal y etiqueta
+
+8) Métricas MVP
+- Tiempo medio de primera respuesta
+- % respuestas automáticas
+- % escaladas a humano
+- % mensajes sin respuesta
+
+Arquitectura propuesta (simple y potente)
+- Backend: FastAPI (Python)
+- DB: Postgres
+- Cola/reintentos: Redis + worker (opcional en v1)
+- Webhooks: Meta Graph para eventos entrantes
+- LLM: OpenAI (respuestas + clasificación)
+- Frontend panel: Next.js o dashboard rápido (Retool)
+- Deploy: Docker Compose en servidor/VM
+
+Flujo operativo
+1. Llega comentario/DM por webhook
+2. Normalización del evento
+3. Clasificación de intención + riesgo
+4. Generación de respuesta (IA + contexto)
+5. Decisión por modo:
+   - Auto -> publicar
+   - Semi-auto -> guardar borrador y esperar aprobación
+   - Manual-asistido -> sugerencia sin publicar
+6. Guardado en DB + métricas
+
+Modelo de negocio (vendible)
+- Setup inicial: 300€–1500€
+- Suscripción mensual:
+  - Basic: 149€/mes (1 canal, límite mensajes)
+  - Pro: 299€/mes (2-3 canales, reglas avanzadas)
+  - Premium: 499€+/mes (multimarca, SLA, soporte prioritario)
+- Extra por volumen alto de mensajes/API
+
+ICP (cliente ideal inicial)
+- Hoteles boutique
+- Restaurantes y franquicias locales
+- Clínicas estéticas
+- Gasolineras con volumen local
+- Microinfluencers/agencias pequeñas con muchas interacciones
+
+Roadmap por fases
+Fase 1 (MVP rápido)
+- Instagram + Facebook
+- Comentarios + DMs
+- Auto/Semi-auto
+- Panel básico + métricas mínimas
+
+Fase 2
+- X (Twitter)
+- Reglas avanzadas por campaña
+- Base de conocimiento editable por cliente
+- SLA y auditoría completa
+
+Fase 3
+- Multicuenta/multimarca
+- Integración CRM (HubSpot/Zoho)
+- Detección de oportunidades comerciales (lead scoring)
+
+Siguiente paso inmediato
+- Definir vertical inicial (recomendado: hotel o restaurante)
+- Crear tono de marca v1 (10 reglas)
+- Definir 30 FAQs reales
+- Activar modo semi-auto en piloto para validar calidad sin riesgo
