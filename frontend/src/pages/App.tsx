@@ -56,6 +56,7 @@ export function App() {
       prompt_persona: persona,
       instagram_token: instagramToken || null,
       openai_api_key: openaiKey || null,
+      auto_mode: 'auto',
     });
     setMessage('Cuenta creada ✅');
     setHandle('');
@@ -68,7 +69,8 @@ export function App() {
     if (!selectedAccountId) return;
     try {
       const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
-      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0}`);
+      const auto = data.auto_reply || {};
+      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto sent:${auto.sent ?? 0} skipped:${auto.skipped ?? 0} failed:${auto.failed ?? 0}`);
       await loadDashboard(selectedAccountId);
     } catch (err: any) {
       const detail = err?.response?.data?.detail;

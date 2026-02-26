@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.models import User, SocialAccount, Post, Comment, Reply
 from app.services.instagram_sync import sync_instagram
 from app.services.audit_service import log_action
+from app.services.auto_reply_service import auto_reply_for_account
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -32,6 +33,8 @@ def sync_account(
         if "token" in reason:
             status_code = 401
         raise HTTPException(status_code=status_code, detail=result)
+    auto_report = auto_reply_for_account(db, account.id)
+    result["auto_reply"] = auto_report
     log_action(db, action="sync_success", user_id=current_user.id, entity_type="social_account", entity_id=str(account.id), detail=str(result))
     return result
 

@@ -2,11 +2,14 @@ from sqlalchemy.orm import Session
 
 from app.models.models import SocialAccount, SyncRun
 from app.services.instagram_sync import sync_instagram
+from app.services.auto_reply_service import auto_reply_for_account
 
 
 def run_sync_for_account(db: Session, account: SocialAccount) -> dict:
     result = sync_instagram(db, account)
     if result.get("ok"):
+        auto_report = auto_reply_for_account(db, account.id)
+        result["auto_reply"] = auto_report
         row = SyncRun(
             social_account_id=account.id,
             status="success",

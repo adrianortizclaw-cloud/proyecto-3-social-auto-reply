@@ -1,3 +1,4 @@
+import json
 import re
 from dataclasses import dataclass
 
@@ -39,11 +40,49 @@ def _openai_chat(api_key: str, prompt: str) -> str:
                     {"role": "system", "content": "You are a concise social media assistant. Reply in Spanish unless user wrote in English."},
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": 0.4,
+                "temperature": 0.3,
             },
         )
         res.raise_for_status()
         return res.json()["choices"][0]["message"]["content"].strip()
+
+
+def _decide_and_generate(account: SocialAccount, post: Post, comment: Comment) -> tuple[bool, str, str]:
+    """Returns: (should_reply, reply_text, reason)"""
+    fallback_reply = f"¡Gracias por comentar! {comment.text[:120]}"
+
+    if not account.openai_key_encrypted:
+        # Without AI key, basic decision policy
+        c = classify_comment(comment.text)
+        if c.risk == "high":
+            return False, "", "high_risk_without_ai"
+        return True, fallback_reply, "heuristic"
+
+    try:
+        openai_key = decrypt_secret(account.openai_key_encrypted)
+        prompt = (
+            "Devuelve SOLO JSON válido con claves: should_reply (bool), reply (string), reason (string corto).\n"
+            f"Persona/criterio de marca:\n{account.prompt_persona}\n\n"
+            f"Caption del post:\n{post.caption or ''}\n\n"
+            f"Comentario del usuario:\n{comment.text}\n\n"
+            "Reglas:\n"
+            "- Si es spam, ofensivo o irrelevante: should_reply=false.\n"
+            "- Si requiere respuesta útil/comercial/reputacional: should_reply=true.\n"
+            "- reply debe ser breve, natural y en tono de marca.\n"
+        )
+        raw = _openai_chat(openai_key, prompt)
+        data = json.loads(raw)
+        should_reply = bool(data.get("should_reply", False))
+        reply = str(data.get("reply", "")).strip()
+        reason = str(data.get("reason", "ai_decision")).strip()[:120]
+        if should_reply and not reply:
+            reply = fallback_reply
+        return should_reply, reply, reason
+    except Exception:
+        c = classify_comment(comment.text)
+        if c.risk == "high":
+            return False, "", "high_risk_fallback"
+        return True, fallback_reply, "fallback"
 
 
 def _publish_reply_to_instagram(platform_comment_id: str, text: str, token: str) -> tuple[bool, str]:
@@ -77,19 +116,12 @@ def generate_reply_for_comment(db: Session, comment_id: int, publish_immediately
         db.commit()
         return {"ok": True, "status": "escalated", "intent": c.intent, "risk": c.risk}
 
-    reply_text = f"¡Gracias por comentar! {comment.text[:120]}"
-    if account.openai_key_encrypted:
-        try:
-            openai_key = decrypt_secret(account.openai_key_encrypted)
-            prompt = (
-                f"Persona: {account.prompt_persona}\n"
-                f"Post caption: {post.caption or ''}\n"
-                f"Comentario: {comment.text}\n"
-                f"Genera una respuesta breve, útil y natural."
-            )
-            reply_text = _openai_chat(openai_key, prompt)
-        except Exception:
-            pass
+    should_reply, reply_text, decision_reason = _decide_and_generate(account, post, comment)
+    if not should_reply:
+        reply = Reply(comment_id=comment.id, text=f"[SKIPPED] {decision_reason}", status="skipped")
+        db.add(reply)
+        db.commit()
+        return {"ok": True, "status": "skipped", "intent": c.intent, "risk": c.risk, "decision_reason": decision_reason}
 
     status = "draft"
     publish_detail = ""
@@ -119,4 +151,5 @@ def generate_reply_for_comment(db: Session, comment_id: int, publish_immediately
         "risk": c.risk,
         "confidence": c.confidence,
         "publish_detail": publish_detail,
+        "decision_reason": decision_reason,
     }
