@@ -107,3 +107,14 @@ class SyncRun(Base):
     error_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(40), default="meta")
+    ig_business_account_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    payload_json: Mapped[str] = mapped_column(Text)
+    processed: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
