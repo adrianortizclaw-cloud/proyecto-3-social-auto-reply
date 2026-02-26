@@ -23,6 +23,7 @@ def create_account(
         prompt_persona=payload.prompt_persona,
         instagram_token_encrypted=encrypt_secret(payload.instagram_token) if payload.instagram_token else None,
         openai_key_encrypted=encrypt_secret(payload.openai_api_key) if payload.openai_api_key else None,
+        auto_mode=payload.auto_mode,
     )
     db.add(account)
     db.commit()

@@ -7,6 +7,7 @@ class SocialAccountCreate(BaseModel):
     prompt_persona: str
     instagram_token: str | None = None
     openai_api_key: str | None = None
+    auto_mode: str = Field(default="semi_auto", pattern="^(auto|semi_auto|manual)$")
 
 
 class SocialAccountOut(BaseModel):
@@ -14,6 +15,7 @@ class SocialAccountOut(BaseModel):
     platform: str
     account_handle: str
     prompt_persona: str
+    auto_mode: str
 
     class Config:
         from_attributes = True

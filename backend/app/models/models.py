@@ -27,6 +27,7 @@ class SocialAccount(Base):
     prompt_persona: Mapped[str] = mapped_column(Text)
     instagram_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     openai_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_mode: Mapped[str] = mapped_column(String(20), default="semi_auto")  # auto/semi_auto/manual
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="accounts")
