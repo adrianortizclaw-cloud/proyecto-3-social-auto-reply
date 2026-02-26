@@ -2,22 +2,26 @@ from datetime import datetime, timedelta, timezone
 import base64
 import hashlib
 
+import bcrypt
 from cryptography.fernet import Fernet
 from jose import jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ALGORITHM = "HS256"
 
 
+def _password_material(password: str) -> bytes:
+    # Pre-hash to avoid bcrypt 72-byte limit and keep deterministic verification.
+    return hashlib.sha256(password.encode("utf-8")).hexdigest().encode("utf-8")
+
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_password_material(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(_password_material(plain), hashed.encode("utf-8"))
 
 
 def create_access_token(subject: str) -> str:
