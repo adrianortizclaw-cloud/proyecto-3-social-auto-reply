@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.models import User, SocialAccount, Post, Comment, Reply
-from app.services.instagram_sync import sync_mock_instagram
+from app.services.instagram_sync import sync_instagram
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -23,8 +23,8 @@ def sync_account(
     current_user: User = Depends(get_current_user),
 ):
     account = _check_ownership(account_id, current_user, db)
-    sync_mock_instagram(db, account)
-    return {"ok": True, "message": "Mock sync done"}
+    result = sync_instagram(db, account)
+    return result
 
 
 @router.get("/{account_id}")

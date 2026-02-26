@@ -19,7 +19,7 @@ MVP profesional para gestionar múltiples cuentas sociales con autenticación se
   - últimos reels
   - últimos comentarios
   - últimas respuestas
-- Endpoint de sincronización mock para Instagram (preparado para Graph API)
+- Endpoint de sincronización real para Instagram Graph API (usa token + Instagram User ID)
 
 ## Seguridad
 - Password hashing (`bcrypt`)

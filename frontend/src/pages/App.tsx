@@ -66,8 +66,12 @@ export function App() {
 
   async function syncAccount() {
     if (!selectedAccountId) return;
-    await api.post(`/api/dashboard/${selectedAccountId}/sync`);
-    setMessage('Sincronización mock completada ✅');
+    const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
+    if (data.ok) {
+      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0}`);
+    } else {
+      setMessage(`Sync falló: ${data.reason || 'unknown_error'}`);
+    }
     await loadDashboard(selectedAccountId);
   }
 
@@ -78,63 +82,113 @@ export function App() {
 
   if (!token) {
     return (
-      <main style={{ maxWidth: 500, margin: '40px auto', fontFamily: 'sans-serif' }}>
-        <h1>Social Auto Reply</h1>
-        <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ display: 'block', width: '100%', marginBottom: 8 }} />
-        <input placeholder="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ display: 'block', width: '100%', marginBottom: 8 }} />
-        <button onClick={register}>Register</button>{' '}
-        <button onClick={login}>Login</button>
-      </main>
+      <div className="login-wrap">
+        <main className="card login-card">
+          <h1 className="title">Social Auto Reply</h1>
+          <p className="subtitle">Accede al panel para gestionar cuentas y respuestas.</p>
+          <label className="label">Email</label>
+          <input className="input" placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label className="label">Password</label>
+          <input className="input" placeholder="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn" onClick={register}>Register</button>
+            <button className="btn ghost" onClick={login}>Login</button>
+          </div>
+        </main>
+      </div>
     );
   }
 
+  const posts = dashboard?.latest_posts || [];
+  const reels = dashboard?.latest_reels || [];
+  const comments = dashboard?.latest_comments || [];
+  const replies = dashboard?.latest_replies || [];
+
   return (
-    <main style={{ padding: 24, fontFamily: 'sans-serif' }}>
-      <h1>Dashboard</h1>
-      <button onClick={() => setAuthToken(null)}>Logout</button>
-      <p>{message}</p>
+    <main className="app">
+      <div className="header">
+        <div>
+          <h1 className="title">Dashboard</h1>
+          <p className="subtitle">Gestiona cuentas, sincroniza Instagram y revisa actividad reciente.</p>
+        </div>
+        <button className="btn ghost" onClick={() => setAuthToken(null)}>Logout</button>
+      </div>
 
-      <section style={{ border: '1px solid #ddd', padding: 12, marginTop: 12 }}>
-        <h2>Nueva cuenta social</h2>
-        <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
-          <option value="instagram">Instagram</option>
-          <option value="facebook">Facebook</option>
-          <option value="x">X</option>
-        </select>
-        <input placeholder="@handle" value={handle} onChange={(e) => setHandle(e.target.value)} style={{ marginLeft: 8 }} />
-        <br /><br />
-        <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={3} style={{ width: '100%' }} />
-        <input placeholder="Instagram token" value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 8 }} />
-        <input placeholder="OpenAI API key" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} style={{ display: 'block', width: '100%', marginTop: 8 }} />
-        <button onClick={createAccount} style={{ marginTop: 8 }}>Guardar cuenta</button>
+      <p className="status">{message}</p>
+
+      <section className="grid">
+        <article className="card">
+          <h2>Nueva cuenta social</h2>
+          <label className="label">Plataforma + Instagram User ID (numérico)</label>
+          <div className="row">
+            <select className="select" value={platform} onChange={(e) => setPlatform(e.target.value)}>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="x">X</option>
+            </select>
+            <input className="input" placeholder="Ej: 17841480748207923" value={handle} onChange={(e) => setHandle(e.target.value)} />
+          </div>
+
+          <label className="label">Prompt de personalidad</label>
+          <textarea className="textarea" value={persona} onChange={(e) => setPersona(e.target.value)} />
+
+          <label className="label">Instagram Access Token</label>
+          <input className="input" placeholder="IGAA..." value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
+
+          <label className="label">OpenAI API Key</label>
+          <input className="input" placeholder="sk-..." value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} />
+
+          <button className="btn" style={{ marginTop: 10 }} onClick={createAccount}>Guardar cuenta</button>
+        </article>
+
+        <article className="card">
+          <h2>Cuentas conectadas</h2>
+          <div className="account-list">
+            {accounts.map((acc) => (
+              <div className="account-item" key={acc.id}>
+                <div>
+                  <strong>{acc.platform}</strong> · {acc.account_handle}
+                  <div className="meta">#{acc.id}</div>
+                </div>
+                <button className="btn ghost" onClick={() => { setSelectedAccountId(acc.id); loadDashboard(acc.id); }}>
+                  Abrir
+                </button>
+              </div>
+            ))}
+          </div>
+          <button className="btn success" style={{ marginTop: 10 }} onClick={syncAccount} disabled={!selectedAccountId}>
+            Sync real Instagram
+          </button>
+        </article>
       </section>
 
-      <section style={{ border: '1px solid #ddd', padding: 12, marginTop: 12 }}>
-        <h2>Cuentas</h2>
-        <ul>
-          {accounts.map((acc) => (
-            <li key={acc.id}>
-              <button onClick={() => { setSelectedAccountId(acc.id); loadDashboard(acc.id); }}>
-                {acc.platform} - {acc.account_handle}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button onClick={syncAccount} disabled={!selectedAccountId}>Sync mock</button>
-      </section>
+      <section className="card" style={{ marginTop: 16 }}>
+        <div className="kpis">
+          <div className="kpi"><div className="n">{posts.length}</div><div className="t">Últimas publicaciones</div></div>
+          <div className="kpi"><div className="n">{reels.length}</div><div className="t">Últimos reels</div></div>
+          <div className="kpi"><div className="n">{comments.length}</div><div className="t">Últimos comentarios</div></div>
+          <div className="kpi"><div className="n">{replies.length}</div><div className="t">Últimas respuestas</div></div>
+        </div>
 
-      {dashboard && (
-        <section style={{ marginTop: 16 }}>
-          <h2>Últimas publicaciones</h2>
-          <pre>{JSON.stringify(dashboard.latest_posts, null, 2)}</pre>
-          <h2>Últimos reels</h2>
-          <pre>{JSON.stringify(dashboard.latest_reels, null, 2)}</pre>
-          <h2>Últimos comentarios</h2>
-          <pre>{JSON.stringify(dashboard.latest_comments, null, 2)}</pre>
-          <h2>Últimas respuestas</h2>
-          <pre>{JSON.stringify(dashboard.latest_replies, null, 2)}</pre>
+        <section className="grid">
+          <article>
+            <h2>Publicaciones</h2>
+            <ul className="list">{posts.map((x: any) => <li key={x.id}>{x.text || '(sin caption)'}<div className="small">{x.created_at}</div></li>)}</ul>
+          </article>
+          <article>
+            <h2>Reels</h2>
+            <ul className="list">{reels.map((x: any) => <li key={x.id}>{x.text || '(sin caption)'}<div className="small">{x.created_at}</div></li>)}</ul>
+          </article>
+          <article>
+            <h2>Comentarios</h2>
+            <ul className="list">{comments.map((x: any) => <li key={x.id}>{x.text}<div className="small">{x.created_at}</div></li>)}</ul>
+          </article>
+          <article>
+            <h2>Respuestas</h2>
+            <ul className="list">{replies.map((x: any) => <li key={x.id}>{x.text}<div className="small">{x.created_at}</div></li>)}</ul>
+          </article>
         </section>
-      )}
+      </section>
     </main>
   );
 }
