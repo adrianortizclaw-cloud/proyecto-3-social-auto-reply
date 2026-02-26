@@ -94,3 +94,16 @@ class OAuthState(Base):
     social_account_id: Mapped[int] = mapped_column(ForeignKey("social_accounts.id", ondelete="CASCADE"), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SyncRun(Base):
+    __tablename__ = "sync_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    social_account_id: Mapped[int] = mapped_column(ForeignKey("social_accounts.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True)  # success/failed
+    created_posts: Mapped[int] = mapped_column(default=0)
+    created_comments: Mapped[int] = mapped_column(default=0)
+    error_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, accounts, dashboard, meta
+from app.api import auth, accounts, dashboard, meta, sync
 from app.core.config import settings
 from app.db.session import Base, engine
 
@@ -21,6 +21,7 @@ app.include_router(auth.router)
 app.include_router(accounts.router)
 app.include_router(dashboard.router)
 app.include_router(meta.router)
+app.include_router(sync.router)
 
 
 @app.get("/health")
