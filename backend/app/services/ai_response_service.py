@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.security import decrypt_secret
 from app.models.models import Comment, Post, Reply, SocialAccount
 
+GRAPH_BASE = "https://graph.facebook.com/v22.0"
+
 
 @dataclass
 class Classification:
@@ -44,7 +46,18 @@ def _openai_chat(api_key: str, prompt: str) -> str:
         return res.json()["choices"][0]["message"]["content"].strip()
 
 
-def generate_reply_for_comment(db: Session, comment_id: int) -> dict:
+def _publish_reply_to_instagram(platform_comment_id: str, text: str, token: str) -> tuple[bool, str]:
+    with httpx.Client(timeout=20.0) as client:
+        res = client.post(
+            f"{GRAPH_BASE}/{platform_comment_id}/replies",
+            data={"message": text, "access_token": token},
+        )
+        if res.status_code != 200:
+            return False, res.text
+        return True, res.text
+
+
+def generate_reply_for_comment(db: Session, comment_id: int, publish_immediately: bool = True) -> dict:
     comment = db.get(Comment, comment_id)
     if not comment:
         return {"ok": False, "reason": "comment_not_found"}
@@ -64,7 +77,7 @@ def generate_reply_for_comment(db: Session, comment_id: int) -> dict:
         db.commit()
         return {"ok": True, "status": "escalated", "intent": c.intent, "risk": c.risk}
 
-    draft_text = f"¡Gracias por comentar! {comment.text[:120]}"
+    reply_text = f"¡Gracias por comentar! {comment.text[:120]}"
     if account.openai_key_encrypted:
         try:
             openai_key = decrypt_secret(account.openai_key_encrypted)
@@ -74,12 +87,36 @@ def generate_reply_for_comment(db: Session, comment_id: int) -> dict:
                 f"Comentario: {comment.text}\n"
                 f"Genera una respuesta breve, útil y natural."
             )
-            draft_text = _openai_chat(openai_key, prompt)
+            reply_text = _openai_chat(openai_key, prompt)
         except Exception:
             pass
 
-    status = "draft" if account.auto_mode == "semi_auto" else "sent"
-    reply = Reply(comment_id=comment.id, text=draft_text, status=status)
+    status = "draft"
+    publish_detail = ""
+
+    if publish_immediately:
+        if not account.instagram_token_encrypted:
+            status = "failed"
+            publish_detail = "missing_instagram_token"
+        else:
+            try:
+                token = decrypt_secret(account.instagram_token_encrypted)
+                ok, detail = _publish_reply_to_instagram(comment.platform_comment_id, reply_text, token)
+                status = "sent" if ok else "failed"
+                publish_detail = detail[:500]
+            except Exception as exc:
+                status = "failed"
+                publish_detail = str(exc)[:500]
+
+    reply = Reply(comment_id=comment.id, text=reply_text, status=status)
     db.add(reply)
     db.commit()
-    return {"ok": True, "status": status, "intent": c.intent, "risk": c.risk, "confidence": c.confidence}
+
+    return {
+        "ok": True,
+        "status": status,
+        "intent": c.intent,
+        "risk": c.risk,
+        "confidence": c.confidence,
+        "publish_detail": publish_detail,
+    }

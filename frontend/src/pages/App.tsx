@@ -86,7 +86,8 @@ export function App() {
   async function generateReply(commentId: number) {
     try {
       const { data } = await api.post(`/api/replies/generate/${commentId}`);
-      setMessage(`Respuesta generada ✅ status:${data.status} intent:${data.intent}`);
+      const extra = data.publish_detail ? ` | ${String(data.publish_detail).slice(0, 140)}` : '';
+      setMessage(`Respuesta generada ✅ status:${data.status} intent:${data.intent}${extra}`);
       if (selectedAccountId) await loadDashboard(selectedAccountId);
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
