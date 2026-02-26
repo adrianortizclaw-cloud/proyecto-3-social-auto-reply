@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
     app_secret_key: str
     cors_origins: str = "http://localhost:5173"
+    meta_app_id: str = ""
+    meta_app_secret: str = ""
+    meta_redirect_uri: str = "http://localhost:8000/api/meta/oauth/callback"
+    meta_scopes_csv: str = "pages_show_list,pages_read_engagement,instagram_business_basic,instagram_manage_comments,instagram_business_manage_messages"
 
     @field_validator("app_secret_key")
     @classmethod
@@ -17,6 +21,10 @@ class Settings(BaseSettings):
         if len(v) < 16:
             raise ValueError("APP_SECRET_KEY too short")
         return v
+
+    @property
+    def meta_scopes(self) -> list[str]:
+        return [s.strip() for s in self.meta_scopes_csv.split(",") if s.strip()]
 
     class Config:
         env_file = ".env"

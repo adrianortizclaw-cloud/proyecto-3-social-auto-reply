@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, accounts, dashboard
+from app.api import auth, accounts, dashboard, meta
 from app.core.config import settings
 from app.db.session import Base, engine
 
@@ -20,6 +20,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(accounts.router)
 app.include_router(dashboard.router)
+app.include_router(meta.router)
 
 
 @app.get("/health")

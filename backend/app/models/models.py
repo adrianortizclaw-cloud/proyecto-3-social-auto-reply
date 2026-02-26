@@ -71,3 +71,26 @@ class Reply(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     comment = relationship("Comment", back_populates="replies")
+
+
+class OAuthConnection(Base):
+    __tablename__ = "oauth_connections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    social_account_id: Mapped[int] = mapped_column(ForeignKey("social_accounts.id", ondelete="CASCADE"), unique=True, index=True)
+    access_token_encrypted: Mapped[str] = mapped_column(Text)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    page_id: Mapped[str] = mapped_column(String(120), index=True)
+    ig_business_account_id: Mapped[str] = mapped_column(String(120), index=True)
+    scopes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    state: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    social_account_id: Mapped[int] = mapped_column(ForeignKey("social_accounts.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
