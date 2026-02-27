@@ -80,7 +80,7 @@ def _fetch_comments_for_media(
     # Strategy A: direct comments edge
     url = f"{INSTAGRAM_GRAPH_BASE}/{media_id}/comments"
     params = {
-        "fields": "id,text,username,timestamp",
+        "fields": "id,text,username,timestamp,replies{id,text,username,timestamp}",
         "limit": limit,
         "access_token": token,
     }
@@ -106,19 +106,27 @@ def _fetch_comments_for_media(
     if comments:
         return comments[:max_comments], ""
 
-    # Strategy B: nested comments edge in media fields (some app configs behave better here)
+    # Strategy B: request media with embedded comments and replies
     try:
         res = client.get(
             f"{INSTAGRAM_GRAPH_BASE}/{media_id}",
             params={
-                "fields": "comments.limit(50){id,text,username,timestamp}",
+                "fields": "comments_count,comments.limit(100){id,text,username,timestamp,replies{id,text,username,timestamp}}",
                 "access_token": token,
             },
         )
         if res.status_code == 200:
-            data = (res.json() or {}).get("comments", {}).get("data", [])
-            if data:
-                return data[:max_comments], ""
+            payload = res.json() or {}
+            nested = (payload.get("comments") or {}).get("data", [])
+            merged: list[dict[str, Any]] = []
+            for c in nested:
+                merged.append(c)
+                replies = (c.get("replies") or {}).get("data", [])
+                merged.extend(replies)
+            if merged:
+                return merged[:max_comments], ""
+            if int(payload.get("comments_count") or 0) > 0:
+                last_error = "comments_count>0 pero API devolvió data vacía"
         else:
             last_error = res.text[:260]
     except Exception as exc:  # noqa: BLE001
