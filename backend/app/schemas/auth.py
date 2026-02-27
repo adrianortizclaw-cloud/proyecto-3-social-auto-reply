@@ -14,3 +14,11 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class InstagramLoginRequest(BaseModel):
+    handle: str
+
+class InstagramStartResponse(BaseModel):
+    url: str
+    account_id: int

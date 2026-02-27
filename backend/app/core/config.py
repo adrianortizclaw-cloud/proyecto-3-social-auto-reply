@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
     app_secret_key: str
     cors_origins: str = "http://localhost:5173"
+    frontend_origin: str = "http://localhost:5173"
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_redirect_uri: str = "http://localhost:8000/api/meta/oauth/callback"

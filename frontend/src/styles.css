@@ -24,6 +24,39 @@ body {
   color: var(--text);
 }
 
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  background: radial-gradient(circle at top, rgba(92, 110, 248, 0.15), transparent 55%) #f4f5fb;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 36px 32px;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.15);
+  text-align: left;
+}
+
+.login-input {
+  margin-bottom: 12px;
+}
+
+.login-btn {
+  width: 100%;
+  text-align: center;
+}
+
+.login-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 #root {
   min-height: 100vh;
 }

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { api, setToken } from '../services/api';
 
@@ -11,8 +12,6 @@ type Account = {
 
 export function App() {
   const [token, setAuthToken] = useState<string | null>(localStorage.getItem('token'));
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [dashboard, setDashboard] = useState<any>(null);
@@ -22,6 +21,7 @@ export function App() {
   const [persona, setPersona] = useState('Tono cercano, profesional y rápido.');
   const [connectingAccountId, setConnectingAccountId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const backendOrigin = new URL(import.meta.env.VITE_API_BASE || 'http://localhost:8000').origin;
 
   useEffect(() => {
     setToken(token);
@@ -35,15 +35,24 @@ export function App() {
     }
   }, [token]);
 
-  async function register() {
-    const { data } = await api.post('/api/auth/register', { email, password });
-    setAuthToken(data.access_token);
-  }
-
-  async function login() {
-    const { data } = await api.post('/api/auth/login', { email, password });
-    setAuthToken(data.access_token);
-  }
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== backendOrigin) {
+        return;
+      }
+      const data = event.data || {};
+      if (typeof data.token !== 'string') {
+        return;
+      }
+      setAuthToken(data.token);
+      setMessage('Instagram conectado. Cargando tus cuentas...');
+      if (data.social_account_id) {
+        setSelectedAccountId(Number(data.social_account_id));
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [backendOrigin]);
 
   async function loadAccounts() {
     const { data } = await api.get('/api/accounts');
@@ -64,6 +73,27 @@ export function App() {
     setMessage('Cuenta guardada; cuando conectes Instagram nosotros hacemos el resto.');
     setHandle('');
     await loadAccounts();
+  }
+
+  async function startInstagramLogin() {
+    const normalized = handle.trim().replace(/^@/, '');
+    if (!normalized) {
+      setMessage('Introduce el nombre de la cuenta de Instagram.');
+      return;
+    }
+    try {
+      const { data } = await api.post('/api/auth/instagram/start', { handle: normalized });
+      const popup = window.open(data.url, 'instagram-login', 'width=600,height=700');
+      if (!popup) {
+        setMessage('Permite popups para continuar con Instagram.');
+        return;
+      }
+      popup.focus();
+      setMessage('Abrimos Instagram en otra pestaña para autenticarte.');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'error desconocido';
+      setMessage(`No pude iniciar el login de Instagram: ${detail}`);
+    }
   }
 
   async function connectInstagram(accountId: number) {
@@ -114,23 +144,22 @@ export function App() {
 
   if (!token) {
     return (
-      <div className="auth-screen">
-        <div className="auth-shell">
-          <div className="auth-content">
-            <p className="eyebrow">Proyecto 3</p>
-            <h1>Social Auto-Reply</h1>
-            <p className="subhead">Accede con tu cuenta para orquestar clientes y automatizaciones.</p>
-          </div>
-          <div className="auth-form">
-            <label className="field-label">Email</label>
-            <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tuno@cliente.com" />
-            <label className="field-label">Contraseña</label>
-            <input className="field-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-            <div className="auth-actions">
-              <button className="btn primary" onClick={register}>Registrarme</button>
-              <button className="btn ghost" onClick={login}>Entrar</button>
-            </div>
-          </div>
+      <div className="login-screen">
+        <div className="login-card">
+          <p className="eyebrow">Proyecto 3</p>
+          <h1>Conecta con Instagram</h1>
+          <p className="subhead">Introduce el nombre de la cuenta y te llevamos al login oficial de Meta.</p>
+          <label className="field-label">Cuenta de Instagram</label>
+          <input
+            className="field-input login-input"
+            placeholder="@nombre_cliente"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+          />
+          <button className="btn primary login-btn" onClick={startInstagramLogin} disabled={!handle.trim()}>
+            Continuar con Instagram
+          </button>
+          <p className="login-note">{message || 'Abriremos una ventana para autenticar con Instagram. No necesitas correo ni contraseña.'}</p>
         </div>
       </div>
     );
@@ -183,7 +212,6 @@ export function App() {
       disabled: !selectedAccountId,
     },
   ];
-
 
   const heroStats = [
     { label: 'Publicaciones monitorizadas', value: posts.length },

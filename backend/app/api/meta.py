@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
+import json
 
 from app.api.deps import get_current_user
+from app.core.config import settings
+from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.models import SocialAccount, User
 from app.services.meta_oauth_service import (
@@ -58,9 +62,31 @@ def oauth_callback(
         log_action(db, action="oauth_failed", entity_type="social_account", entity_id=str(state_row.social_account_id), detail=str(exc))
         raise HTTPException(status_code=400, detail=f"oauth_callback_failed: {exc}")
 
-    return {
-        "ok": True,
-        "social_account_id": state_row.social_account_id,
-        "page_id": page_id,
-        "ig_business_account_id": ig_business_account_id,
-    }
+    account = db.get(SocialAccount, state_row.social_account_id)
+    if not account or not account.owner_id:
+        raise HTTPException(status_code=400, detail="Account owner missing")
+    owner = db.get(User, account.owner_id)
+    if not owner:
+        raise HTTPException(status_code=400, detail="Owner not found")
+
+    access_token = create_access_token(str(owner.id))
+    payload = json.dumps({"token": access_token, "social_account_id": str(account.id)})
+    frontend_origin = settings.frontend_origin
+    html = f"""<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Conexión terminada</title>
+  </head>
+  <body>
+    <p>¡Cuenta vinculada! Puedes cerrar esta ventana.</p>
+    <script>
+      const data = {payload};
+      if (window.opener) {{
+        window.opener.postMessage(data, '{frontend_origin}');
+      }}
+      window.close();
+    </script>
+  </body>
+</html>"""
+    return HTMLResponse(html)
