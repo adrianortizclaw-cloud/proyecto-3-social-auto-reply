@@ -95,7 +95,7 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
         media_res = client.get(
             f"{INSTAGRAM_GRAPH_BASE}/{ig_user_id}/media",
             params={
-                "fields": "id,caption,timestamp,media_type,like_count,comments_count,permalink",
+                "fields": "id,caption,timestamp,media_type,like_count,comments_count,permalink,comments.limit(50){id,text,username,timestamp}",
                 "limit": 10,
                 "access_token": token,
             },
@@ -148,22 +148,24 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
                 db.flush()
                 created_posts += 1
 
-            comments_res = client.get(
-                f"{INSTAGRAM_GRAPH_BASE}/{media_id}/comments",
-                params={
-                    "fields": "id,text,username,timestamp",
-                    "limit": 50,
-                    "filter": "stream",
-                    "order": "reverse_chronological",
-                    "access_token": token,
-                },
-            )
-
-            if comments_res.status_code != 200:
-                logger.warning("comments fetch failed for %s status=%s", media_id, comments_res.status_code)
-                continue
-
-            comments_data = comments_res.json().get("data", [])
+            comments_edge = item.get("comments") or {}
+            comments_data = comments_edge.get("data", [])
+            if not comments_data:
+                comments_res = client.get(
+                    f"{INSTAGRAM_GRAPH_BASE}/{media_id}/comments",
+                    params={
+                        "fields": "id,text,username,timestamp",
+                        "limit": 50,
+                        "filter": "stream",
+                        "order": "reverse_chronological",
+                        "access_token": token,
+                    },
+                )
+                if comments_res.status_code != 200:
+                    logger.warning("comments fetch failed for %s status=%s", media_id, comments_res.status_code)
+                    comments_data = []
+                else:
+                    comments_data = comments_res.json().get("data", [])
             logger.debug("media=%s fetched %s comments", media_id, len(comments_data))
 
             for c in comments_data:
