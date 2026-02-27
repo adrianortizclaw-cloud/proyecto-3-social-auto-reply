@@ -52,11 +52,18 @@ export function App() {
   }, [backendOrigin]);
 
   async function loadAccounts() {
-    const { data } = await api.get('/api/accounts');
-    setAccounts(data);
-    if (data.length) {
-      setSelectedAccountId(data[0].id);
-      await loadDashboard(data[0].id);
+    try {
+      const { data } = await api.get('/api/accounts');
+      setAccounts(data);
+      if (data.length) {
+        setSelectedAccountId(data[0].id);
+        await loadDashboard(data[0].id);
+      }
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        setMessage('Tu sesión expiró. Vuelve a conectar desde la pantalla de login.');
+        setAuthToken(null);
+      }
     }
   }
 
@@ -100,8 +107,17 @@ export function App() {
   }
 
   async function loadDashboard(accountId: number) {
-    const { data } = await api.get(`/api/dashboard/${accountId}`);
-    setDashboard(data);
+    try {
+      const { data } = await api.get(`/api/dashboard/${accountId}`);
+      console.debug('dashboard response', { posts: data.latest_posts?.length, comments: data.latest_comments?.length });
+      setDashboard(data);
+    } catch (err: any) {
+      console.error('dashboard load failed', err?.response?.data || err?.message);
+      if (err?.response?.status === 401) {
+        setMessage('Tu sesión expiró. Vuelve a conectar desde la pantalla de login.');
+        setAuthToken(null);
+      }
+    }
   }
 
   async function generateReply(commentId: number) {
@@ -212,9 +228,6 @@ export function App() {
             <p className="activity-eyebrow">Actividad reciente</p>
             <h2>Lo que estamos monitorizando</h2>
           </div>
-          <button className="btn ghost" onClick={() => selectedAccountId && loadDashboard(selectedAccountId)} disabled={!selectedAccountId}>
-            Actualizar datos
-          </button>
         </div>
 
         <div className="activity-grid">
