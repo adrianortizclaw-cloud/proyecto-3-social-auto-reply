@@ -91,6 +91,7 @@ def get_dashboard(
                 "id": c.platform_comment_id,
                 "comment_id": c.id,
                 "text": c.text,
+                "author_handle": c.author_handle,
                 "created_at": c.created_at.isoformat(),
             }
             for c in latest_comments

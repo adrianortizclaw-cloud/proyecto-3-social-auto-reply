@@ -49,6 +49,7 @@ def _normalize_media_details(item: dict[str, Any], fetched_comments: int) -> dic
         "comment_count": int(item.get("comments_count") or 0),
         "comments_fetched": fetched_comments,
         "like_count": int(item.get("like_count") or 0),
+        "media_url": item.get("media_url") or item.get("thumbnail_url"),
     }
 
 
@@ -148,9 +149,7 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
                 continue
 
             kind = (item.get("media_type") or "").upper()
-            if kind == "STORY":
-                story_count += 1
-            elif kind in {"REEL", "VIDEO"}:
+            if kind in {"REEL", "VIDEO"}:
                 reel_count += 1
             else:
                 post_count += 1

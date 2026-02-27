@@ -226,6 +226,14 @@ export function App() {
     { label: 'Likes totales', value: summaryData.total_likes },
   ];
 
+  const graphMetrics = [
+    { label: 'Posts', value: summaryData.posts },
+    { label: 'Reels', value: summaryData.reels },
+    { label: 'Historias', value: summaryData.stories },
+    { label: 'Likes', value: summaryData.total_likes },
+  ];
+  const maxGraphValue = Math.max(...graphMetrics.map((metric) => metric.value), 1);
+
   const graphInsightCards = graphInsights
     ? Object.entries(graphInsights).map(([name, values]) => {
         const candidate = Array.isArray(values) && values.length ? values[0] : null;
@@ -273,6 +281,21 @@ export function App() {
           </article>
         ))}
       </div>
+
+      <section className="graph-row">
+        {graphMetrics.map((metric) => (
+          <article key={metric.label} className="graph-card">
+            <p className="graph-label">{metric.label}</p>
+            <div className="graph-track" role="presentation">
+              <div
+                className="graph-bar"
+                style={{ width: `${(metric.value / maxGraphValue) * 100}%` }}
+              />
+            </div>
+            <p className="graph-value">{metric.value}</p>
+          </article>
+        ))}
+      </section>
 
       <section className="insight-row">
         {insights.map((insight) => (
@@ -362,17 +385,60 @@ export function App() {
               {!posts.length && <li className="activity-empty">Sin publicaciones por ahora.</li>}
             </ul>
           </article>
-          <article className="activity-card">
+          <article className="activity-card activity-card--stretch">
             <h3>Reels + historias</h3>
-            <ul className="activity-list">
-              {reels.map((x: any) => (
-                <li key={x.id}>
-                  <strong>{x.text ? x.text.slice(0, 60) : '(sin información)'}</strong>
-                  <p className="small">{x.created_at}</p>
-                </li>
-              ))}
-              {!reels.length && <li className="activity-empty">Sin reels recientes.</li>}
-            </ul>
+            {syncDebug?.media_details?.length ? (
+              <div className="media-grid">
+                {syncDebug.media_details.map((media: any) => (
+                  <article key={media.id} className="media-preview-card">
+                    <div
+                      className="media-preview-thumb"
+                      style={
+                        media.media_url
+                          ? { backgroundImage: `url(${media.media_url})` }
+                          : undefined
+                      }
+                    >
+                      {!media.media_url && <span>Sin preview</span>}
+                    </div>
+                    <p className="media-caption">{media.caption || '(sin caption)'}</p>
+                    <p className="media-meta">{media.type || 'Media'} · {media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
+                    {media.permalink && (
+                      <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver en Instagram</a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <ul className="activity-list">
+                {reels.map((x: any) => (
+                  <li key={x.id}>
+                    <strong>{x.text ? x.text.slice(0, 60) : '(sin información)'}</strong>
+                    <p className="small">{x.created_at}</p>
+                  </li>
+                ))}
+                {!reels.length && <li className="activity-empty">Sin reels recientes.</li>}
+              </ul>
+            )}
+            {syncDebug?.stories && syncDebug.stories.length > 0 && (
+              <div className="media-grid media-grid--stories">
+                {syncDebug.stories.map((story: any) => (
+                  <article key={story.id} className="media-preview-card media-preview-card--story">
+                    <div
+                      className="media-preview-thumb"
+                      style={story.media_url ? { backgroundImage: `url(${story.media_url})` } : undefined}
+                    >
+                      {!story.media_url && <span>Sin preview</span>}
+                    </div>
+                    <p className="media-caption">{story.caption || '(sin caption)'}</p>
+                    <p className="media-meta">{story.media_type} · {story.timestamp ? new Date(story.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                    {story.permalink && (
+                      <a className="media-link" href={story.permalink} target="_blank" rel="noreferrer">Ver historia</a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
           </article>
           <article className="activity-card activity-card--stretch">
             <h3>Comentarios y respuestas automáticas</h3>
@@ -383,6 +449,7 @@ export function App() {
                   return (
                     <div key={`${x.id}-${x.comment_id ?? 'na'}`} className="comment-row">
                       <div>
+                        <p className="comment-author">{x.author_handle ? `@${x.author_handle}` : 'Cliente'}</p>
                         <p className="comment-text">{x.text}</p>
                         <p className="small">{x.created_at}</p>
                       </div>
