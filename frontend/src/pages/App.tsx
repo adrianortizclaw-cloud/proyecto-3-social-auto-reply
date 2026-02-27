@@ -10,6 +10,16 @@ type Account = {
   connected: boolean;
 };
 
+
+
+type SyncSummary = {
+  stories: number;
+  reels: number;
+  posts: number;
+  total_likes: number;
+  synced_comments: number;
+};
+
 export function App() {
   const [token, setAuthToken] = useState<string | null>(localStorage.getItem('token'));
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -17,6 +27,8 @@ export function App() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [message, setMessage] = useState('');
   const [handle, setHandle] = useState('');
+  const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
+  const [graphInsights, setGraphInsights] = useState<Record<string, any> | null>(null);
   const backendOrigin = new URL(import.meta.env.VITE_API_BASE || 'http://localhost:8000').origin;
   const callbackOriginsRef = useRef<Set<string>>(new Set([backendOrigin]));
 
@@ -29,6 +41,8 @@ export function App() {
       localStorage.removeItem('token');
       setAccounts([]);
       setDashboard(null);
+      setSyncSummary(null);
+      setGraphInsights(null);
     }
   }, [token]);
 
@@ -96,7 +110,16 @@ export function App() {
     try {
       const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
       const auto = data.auto_reply || {};
-      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto:${auto.sent ?? 0}`);
+      if (data.media_summary) {
+        setSyncSummary(data.media_summary);
+      }
+      if (data.insights) {
+        setGraphInsights(data.insights);
+      }
+      const summaryDetail = data.media_summary
+        ? ` | posts:${data.media_summary.posts ?? 0} reels:${data.media_summary.reels ?? 0} historias:${data.media_summary.stories ?? 0} likes:${data.media_summary.total_likes ?? 0}`
+        : '';
+      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto:${auto.sent ?? 0}${summaryDetail}`);
       await loadDashboard(selectedAccountId);
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
@@ -184,6 +207,36 @@ export function App() {
       detail: replies.length ? 'Última respuesta generada hace poco' : 'Aún no generadas',
     },
   ];
+  const summaryData = {
+    stories: syncSummary?.stories ?? 0,
+    reels: syncSummary?.reels ?? 0,
+    posts: syncSummary?.posts ?? 0,
+    total_likes: syncSummary?.total_likes ?? 0,
+    synced_comments: syncSummary?.synced_comments ?? 0,
+  };
+
+  const summaryCards = [
+    { label: 'Historias', value: summaryData.stories },
+    { label: 'Reels', value: summaryData.reels },
+    { label: 'Publicaciones', value: summaryData.posts },
+    { label: 'Likes totales', value: summaryData.total_likes },
+  ];
+
+  const graphInsightCards = graphInsights
+    ? Object.entries(graphInsights).map(([name, values]) => {
+        const candidate = Array.isArray(values) && values.length ? values[0] : null;
+        const rawValue = candidate?.value ?? '—';
+        const formattedValue = typeof rawValue === 'number' ? rawValue.toLocaleString() : rawValue;
+        const detail = candidate?.end_time ? new Date(candidate.end_time).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
+        return {
+          label: name.replace(/_/g, ' '),
+          value: formattedValue,
+          detail,
+        };
+      })
+    : [];
+
+
 
   return (
     <div className="client-shell">
@@ -208,6 +261,15 @@ export function App() {
         </div>
       </header>
 
+      <div className="stats-row">
+        {summaryCards.map((stat) => (
+          <article key={stat.label} className="stat-card">
+            <div className="stat-value">{stat.value}</div>
+            <p className="stat-label">{stat.label}</p>
+          </article>
+        ))}
+      </div>
+
       <section className="insight-row">
         {insights.map((insight) => (
           <article key={insight.label} className="insight-card">
@@ -217,6 +279,18 @@ export function App() {
           </article>
         ))}
       </section>
+
+      {graphInsightCards.length > 0 && (
+        <section className="insight-row insight-row--graph">
+          {graphInsightCards.map((insight) => (
+            <article key={insight.label} className="insight-card">
+              <p className="insight-label">{insight.label}</p>
+              <p className="insight-value">{insight.value}</p>
+              {insight.detail && <p className="insight-detail">{insight.detail}</p>}
+            </article>
+          ))}
+        </section>
+      )}
 
       <p className="status-row">
         {message || (selectedConnected ? 'Todo está listo. Pulsa Sincronizar si quieres forzar un refresco ahora.' : 'Activa la conexión desde el login para empezar a recoger datos.')}
