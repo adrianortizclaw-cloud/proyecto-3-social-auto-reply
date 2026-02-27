@@ -14,6 +14,8 @@ OAUTH_BASE = "https://www.facebook.com/v22.0/dialog/oauth"
 
 
 def build_oauth_url(account_id: int, state: str) -> str:
+    if not settings.meta_app_id or not settings.meta_app_secret:
+        raise ValueError('META_APP_ID (and META_APP_SECRET) must be configured to build the OAuth URL')
     params = {
         "client_id": settings.meta_app_id,
         "redirect_uri": settings.meta_redirect_uri,

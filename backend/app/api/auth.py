@@ -89,5 +89,8 @@ def instagram_start(payload: InstagramLoginRequest, db: Session = Depends(get_db
     owner = _ensure_owner_for_handle(db, handle)
     account = _ensure_account_for_owner(db, owner, handle)
     state = create_oauth_state(db, account)
-    url = build_oauth_url(account.id, state)
+    try:
+        url = build_oauth_url(account.id, state)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     return InstagramStartResponse(url=url, account_id=account.id)
