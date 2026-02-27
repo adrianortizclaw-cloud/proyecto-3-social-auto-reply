@@ -34,6 +34,10 @@ class SocialAccount(Base):
     owner = relationship("User", back_populates="accounts")
     posts = relationship("Post", back_populates="account", cascade="all, delete-orphan")
 
+    @property
+    def connected(self) -> bool:
+        return bool(self.instagram_token_encrypted)
+
 
 class Post(Base):
     __tablename__ = "posts"

@@ -314,6 +314,29 @@ textarea.field-input {
   color: var(--muted);
 }
 
+.account-pill__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+}
+
+.status-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #f1f5f9;
+  color: var(--text);
+}
+
+.status-badge--connected {
+  background: #22c55e;
+  color: #0f172a;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
 .activity-panel {
   margin-top: 36px;
   display: flex;
@@ -408,6 +431,35 @@ textarea.field-input {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--muted);
+}
+
+
+.connection-hint {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  color: #713f12;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.connection-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.connection-warning {
+  margin-top: 24px;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #c7d2fe;
+  color: #1e1b4b;
+  font-weight: 600;
 }
 
 @media (max-width: 720px) {

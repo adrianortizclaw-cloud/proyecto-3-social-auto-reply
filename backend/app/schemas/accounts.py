@@ -16,6 +16,7 @@ class SocialAccountOut(BaseModel):
     account_handle: str
     prompt_persona: str
     auto_mode: str
+    connected: bool
 
     class Config:
         from_attributes = True

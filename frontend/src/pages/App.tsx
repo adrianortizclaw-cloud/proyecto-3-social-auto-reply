@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api, setToken } from '../services/api';
 
-type Account = { id: number; platform: string; account_handle: string; prompt_persona: string };
+type Account = {
+  id: number;
+  platform: string;
+  account_handle: string;
+  prompt_persona: string;
+  connected: boolean;
+};
 
 export function App() {
   const [token, setAuthToken] = useState<string | null>(localStorage.getItem('token'));
@@ -11,10 +17,10 @@ export function App() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [dashboard, setDashboard] = useState<any>(null);
   const [message, setMessage] = useState('');
-
   const [platform, setPlatform] = useState('instagram');
   const [handle, setHandle] = useState('');
   const [persona, setPersona] = useState('Tono cercano, profesional y rápido.');
+  const [connectingAccountId, setConnectingAccountId] = useState<number | null>(null);
 
   useEffect(() => {
     setToken(token);
@@ -54,11 +60,23 @@ export function App() {
       prompt_persona: persona,
       auto_mode: 'auto',
     });
-    setMessage('Cuenta guardada; nosotros seguimos con los tokens.');
+    setMessage('Cuenta guardada; cuando conectes Instagram nosotros hacemos el resto.');
     setHandle('');
-    setInstagramToken('');
-    setOpenaiKey('');
     await loadAccounts();
+  }
+
+  async function connectInstagram(accountId: number) {
+    try {
+      setConnectingAccountId(accountId);
+      const { data } = await api.get(`/api/meta/oauth/start/${accountId}`);
+      window.open(data.url, '_blank', 'noopener');
+      setMessage('Abrimos el flujo de Instagram en otra pestaña. Completa la conexión y vuelve aquí para actualizar.');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'error desconocido';
+      setMessage(`No se pudo iniciar la conexión: ${detail}`);
+    } finally {
+      setConnectingAccountId(null);
+    }
   }
 
   async function syncAccount() {
@@ -122,6 +140,7 @@ export function App() {
   const comments = dashboard?.latest_comments || [];
   const replies = dashboard?.latest_replies || [];
   const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
+  const selectedConnected = Boolean(selectedAccount?.connected);
 
   const heroStats = [
     { label: 'Publicaciones monitorizadas', value: posts.length },
@@ -136,15 +155,15 @@ export function App() {
         <div>
           <p className="hero-eyebrow">Panorama social · Proyecto 3</p>
           <h1>Tu cliente conecta con Instagram sin líos.</h1>
-          <p className="hero-subhead">Nosotros gestionamos los tokens, la sincronización y las respuestas. Tú solo pide permiso y comprueba el resultado.</p>
+          <p className="hero-subhead">Nosotros gestionamos los tokens, la sincronización y las respuestas. Sólo necesitas dar permiso y revisar resultados.</p>
         </div>
         <div className="hero-actions">
           <button className="btn ghost" onClick={() => setAuthToken(null)}>Cerrar sesión</button>
-          <button className="btn primary" onClick={syncAccount} disabled={!selectedAccountId}>Sincronizar cuenta</button>
+          <button className="btn primary" onClick={syncAccount} disabled={!selectedConnected}>Sincronizar cuenta</button>
         </div>
       </header>
 
-      <p className="status-row">{message || 'Selecciona una cuenta, sincroniza y revisa la actividad reciente.'}</p>
+      <p className="status-row">{message || 'Selecciona una cuenta, vincúlala y los comentarios llegarán solos.'}</p>
 
       <div className="stats-row">
         {heroStats.map((stat) => (
@@ -161,7 +180,7 @@ export function App() {
             <div>
               <p className="panel-eyebrow">Onboarding rápido</p>
               <h2>Conecta un nuevo cliente</h2>
-              <p className="panel-subhead">Solo necesitamos el identificador de la cuenta y el tono. El token de Instagram lo generamos nosotros con el login.</p>
+              <p className="panel-subhead">Solo necesitas el handle o ID. Nosotros generamos el token de Instagram y lo guardamos seguro.</p>
             </div>
           </div>
 
@@ -179,7 +198,7 @@ export function App() {
           <textarea className="field-input" value={persona} onChange={(e) => setPersona(e.target.value)} rows={3} />
 
           <div className="panel-foot">
-            <p className="panel-note">Guardamos el app secret, la clave de OpenAI y el token de Instagram en nuestro backend seguro. Solo necesitas vincular la cuenta y nosotros hacemos el resto.</p>
+            <p className="panel-note">Nuestro backend guarda el app secret y la clave de OpenAI en .env. El token de Instagram se obtiene via OAuth y nunca sale de la base de datos.</p>
           </div>
 
           <button className="btn primary" onClick={createAccount} disabled={!handle}>Guardar y preparar</button>
@@ -190,9 +209,11 @@ export function App() {
             <div>
               <p className="panel-eyebrow">Cuentas activas</p>
               <h2>{selectedAccount ? `${selectedAccount.platform.toUpperCase()} · ${selectedAccount.account_handle}` : 'Elige una cuenta'}</h2>
-              <p className="panel-subhead">Selecciona una cuenta para ver la actividad y generar respuestas.</p>
+              <p className="panel-subhead">Selecciona una cuenta para ver la actividad, vincular Instagram y generar respuestas.</p>
             </div>
-            <button className="btn secondary" onClick={syncAccount} disabled={!selectedAccountId}>Sync ahora</button>
+            <button className="btn secondary" onClick={syncAccount} disabled={!selectedConnected}>
+              Sync ahora
+            </button>
           </div>
 
           <div className="account-list">
@@ -206,20 +227,51 @@ export function App() {
                     loadDashboard(acc.id);
                   }}
                 >
-                  <span>
+                  <div>
                     <strong>{acc.platform}</strong> · {acc.account_handle}
                     <br />
                     <small>ID #{acc.id}</small>
-                  </span>
-                  <span className="pill-meta">{acc.prompt_persona}</span>
+                  </div>
+                  <div className="account-pill__meta">
+                    <span className="pill-meta">{acc.prompt_persona}</span>
+                    <span className={`status-badge ${acc.connected ? 'status-badge--connected' : ''}`}>
+                      {acc.connected ? 'Conectada' : 'Pendiente'}
+                    </span>
+                  </div>
                 </button>
               ))
             ) : (
-              <p className="panel-note">Todavía no hay cuentas. Empieza creando una y nosotros te guiamos con el onboarding.</p>
+              <p className="panel-note">Todavía no hay cuentas. Empieza creando una nueva y luego víncula Instagram.</p>
             )}
           </div>
+
+          {selectedAccount && !selectedConnected && (
+            <div className="connection-hint">
+              <p>
+                Esta cuenta todavía no tiene token válido. Pulsa <strong>Vincular Instagram</strong> para completar el OAuth y después refresca la lista.
+              </p>
+              <div className="connection-actions">
+                <button
+                  className="btn tertiary"
+                  onClick={() => connectInstagram(selectedAccount.id)}
+                  disabled={connectingAccountId === selectedAccount.id}
+                >
+                  {connectingAccountId === selectedAccount.id ? 'Abriendo conexión...' : 'Vincular Instagram'}
+                </button>
+                <button className="btn ghost" onClick={loadAccounts} disabled={connectingAccountId === selectedAccount.id}>
+                  Actualizar cuentas
+                </button>
+              </div>
+            </div>
+          )}
         </article>
       </section>
+
+      {selectedAccount && !selectedConnected && (
+        <div className="connection-warning">
+          La sincronización solo funciona cuando la cuenta está conectada. Usa el flujo de Instagram para obtener un token antes de sincronizar.
+        </div>
+      )}
 
       <section className="activity-panel">
         <div className="activity-head">
@@ -227,7 +279,9 @@ export function App() {
             <p className="activity-eyebrow">Actividad reciente</p>
             <h2>Lo que estamos monitorizando</h2>
           </div>
-          <button className="btn ghost" onClick={() => selectedAccountId && loadDashboard(selectedAccountId)} disabled={!selectedAccountId}>Actualizar datos</button>
+          <button className="btn ghost" onClick={() => selectedAccountId && loadDashboard(selectedAccountId)} disabled={!selectedAccountId}>
+            Actualizar datos
+          </button>
         </div>
 
         <div className="activity-grid">
