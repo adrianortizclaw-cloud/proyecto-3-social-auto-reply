@@ -71,11 +71,11 @@ def sync_account(
         created_comments=result.get("created_comments", 0),
         error_reason="",
         error_detail="",
-        created_at=datetime.fromisoformat(synced_at) if synced_at else datetime.utcnow(),
+        created_at=datetime.utcnow(),
     )
     db.add(run)
     db.commit()
-    result["last_synced_at"] = synced_at or datetime.utcnow().isoformat()
+    result["last_synced_at"] = synced_at or f"{datetime.utcnow().isoformat()}Z"
     log_action(db, action="sync_success", user_id=current_user.id, entity_type="social_account", entity_id=str(account.id), detail=str(result))
     return result
 
@@ -139,7 +139,7 @@ def get_dashboard(
         .order_by(SyncRun.created_at.desc())
         .first()
     )
-    last_synced_at = last_run.created_at.isoformat() if last_run else None
+    last_synced_at = f"{last_run.created_at.isoformat()}Z" if last_run else None
 
     return {
         "latest_posts": [

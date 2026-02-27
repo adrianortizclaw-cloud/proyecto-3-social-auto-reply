@@ -32,17 +32,23 @@ export function App() {
   const [lastSyncData, setLastSyncData] = useState<{ media_details: any[]; stories: any[] } | null>(null);
   const [instagramProfile, setInstagramProfile] = useState<{ username?: string; profile_picture_url?: string } | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [mediaTab, setMediaTab] = useState<'posts' | 'reels' | 'stories'>('posts');
+  const [lastSyncPayload, setLastSyncPayload] = useState<any>(null);
   const backendOrigin = new URL(import.meta.env.VITE_API_BASE || 'http://localhost:8000').origin;
   const callbackOriginsRef = useRef<Set<string>>(new Set([backendOrigin]));
-  const formatDateTime = (value: string | null) =>
-    value
-      ? new Date(value).toLocaleString('es-ES', {
-          day: '2-digit',
-          month: 'short',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : 'Nunca';
+  const formatDateTime = (value: string | null) => {
+    if (!value) return 'Nunca';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'Nunca';
+    return parsed.toLocaleString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  };
 
   useEffect(() => {
     setToken(token);
@@ -58,6 +64,8 @@ export function App() {
       setLastSyncData(null);
       setInstagramProfile(null);
       setLastSyncedAt(null);
+      setLastSyncPayload(null);
+      setMediaTab('posts');
     }
   }, [token]);
 
@@ -124,7 +132,6 @@ export function App() {
     if (!selectedAccountId) return;
     try {
       const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
-      const auto = data.auto_reply || {};
       if (data.media_summary) {
         setSyncSummary(data.media_summary);
       }
@@ -132,13 +139,12 @@ export function App() {
         setGraphInsights(data.insights);
       }
       setLastSyncData({ media_details: data.media_details || [], stories: data.stories || [] });
+      setLastSyncPayload(data);
       if (data.user) {
         setInstagramProfile(data.user);
       }
       setLastSyncedAt(data.synced_at || new Date().toISOString());
-      setMessage(
-        `Sincronización completada · posts:${data.created_posts ?? 0} comentarios:${data.created_comments ?? 0} · auto:${auto.sent ?? 0}`
-      );
+      setMessage('Sincronización completada. Datos actualizados.');
       console.debug('sync response', data);
       await loadDashboard(selectedAccountId);
     } catch (err: any) {
@@ -154,7 +160,9 @@ export function App() {
       const { data } = await api.get(`/api/dashboard/${accountId}`);
       console.debug('dashboard response', { posts: data.latest_posts?.length, comments: data.latest_comments?.length });
       setDashboard(data);
-      setLastSyncedAt(data.last_synced_at ?? lastSyncedAt);
+      if (data.last_synced_at) {
+        setLastSyncedAt(data.last_synced_at);
+      }
       if (data.profile) {
         setInstagramProfile(data.profile);
       }
@@ -202,8 +210,6 @@ export function App() {
     );
   }
 
-  const posts = dashboard?.latest_posts || [];
-  const reels = dashboard?.latest_reels || [];
   const comments = dashboard?.latest_comments || [];
   const replies = dashboard?.latest_replies || [];
   const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
@@ -252,6 +258,7 @@ export function App() {
   const mediaDetails = lastSyncData?.media_details || [];
   const reelMedia = mediaDetails.filter((media: any) => ['VIDEO', 'REEL'].includes(String(media.type || '').toUpperCase()));
   const postMedia = mediaDetails.filter((media: any) => !['VIDEO', 'REEL'].includes(String(media.type || '').toUpperCase()));
+  const storyMedia = lastSyncData?.stories || [];
 
   const graphInsightCards = graphInsights
     ? Object.entries(graphInsights).map(([name, values]) => {
@@ -341,6 +348,13 @@ export function App() {
         {message || (selectedConnected ? 'Todo está listo. Pulsa Sincronizar si quieres forzar un refresco ahora.' : 'Activa la conexión desde el login para empezar a recoger datos.')}
       </p>
 
+      {lastSyncPayload && (
+        <details className="sync-debug-json-wrap">
+          <summary>Ver salida de sincronización</summary>
+          <pre className="sync-debug-json">{JSON.stringify(lastSyncPayload, null, 2)}</pre>
+        </details>
+      )}
+
       <section className="activity-panel">
         <div className="activity-head">
           <div>
@@ -351,82 +365,66 @@ export function App() {
 
         <div className="activity-grid">
           <article className="activity-card activity-card--stretch">
-            <h3>Publicaciones</h3>
-            {postMedia.length ? (
-              <div className="media-grid">
-                {postMedia.map((media: any) => (
-                  <article key={media.id} className="media-preview-card">
-                    <div
-                      className="media-preview-thumb"
-                      style={media.media_url ? { backgroundImage: `url(${media.media_url})` } : undefined}
-                    >
-                      {!media.media_url && <span>Sin preview</span>}
-                    </div>
-                    <p className="media-caption">{media.caption || '(sin caption)'}</p>
-                    <p className="media-meta">{media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
-                    {media.permalink && (
-                      <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver publicación</a>
-                    )}
-                  </article>
-                ))}
+            <div className="media-browser-head">
+              <h3>Medios</h3>
+              <div className="media-tabs">
+                <button className={`media-tab ${mediaTab === 'posts' ? 'media-tab--active' : ''}`} onClick={() => setMediaTab('posts')}>Publicaciones</button>
+                <button className={`media-tab ${mediaTab === 'reels' ? 'media-tab--active' : ''}`} onClick={() => setMediaTab('reels')}>Reels</button>
+                <button className={`media-tab ${mediaTab === 'stories' ? 'media-tab--active' : ''}`} onClick={() => setMediaTab('stories')}>Historias</button>
               </div>
-            ) : (
-              <p className="activity-empty">Sin publicaciones recientes en el último sync.</p>
+            </div>
+
+            {mediaTab === 'posts' && (
+              postMedia.length ? (
+                <div className="media-grid media-grid--compact">
+                  {postMedia.map((media: any) => (
+                    <article key={media.id} className="media-preview-card">
+                      <div className="media-preview-thumb media-preview-thumb--compact" style={media.media_url ? { backgroundImage: `url(${media.media_url})` } : undefined}>
+                        {!media.media_url && <span>Sin preview</span>}
+                      </div>
+                      <p className="media-caption">{media.caption || '(sin caption)'}</p>
+                      <p className="media-meta">{media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
+                      {media.comment_error && <p className="media-error">{media.comment_error.slice(0, 100)}</p>}
+                      {media.permalink && <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver publicación</a>}
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="activity-empty">Sin publicaciones recientes en el último sync.</p>
             )}
-          </article>
-          <article className="activity-card activity-card--stretch">
-            <h3>Reels + historias</h3>
-            {reelMedia.length ? (
-              <div className="media-grid">
-                {reelMedia.map((media: any) => (
-                  <article key={media.id} className="media-preview-card">
-                    <div
-                      className="media-preview-thumb"
-                      style={
-                        media.media_url
-                          ? { backgroundImage: `url(${media.media_url})` }
-                          : undefined
-                      }
-                    >
-                      {!media.media_url && <span>Sin preview</span>}
-                    </div>
-                    <p className="media-caption">{media.caption || '(sin caption)'}</p>
-                    <p className="media-meta">{media.type || 'Media'} · {media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
-                    {media.permalink && (
-                      <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver en Instagram</a>
-                    )}
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <ul className="activity-list">
-                {reels.map((x: any) => (
-                  <li key={x.id}>
-                    <strong>{x.text ? x.text.slice(0, 60) : '(sin información)'}</strong>
-                    <p className="small">{x.created_at}</p>
-                  </li>
-                ))}
-                {!reels.length && <li className="activity-empty">Sin reels recientes.</li>}
-              </ul>
+
+            {mediaTab === 'reels' && (
+              reelMedia.length ? (
+                <div className="media-grid media-grid--compact">
+                  {reelMedia.map((media: any) => (
+                    <article key={media.id} className="media-preview-card">
+                      <div className="media-preview-thumb media-preview-thumb--compact" style={media.media_url ? { backgroundImage: `url(${media.media_url})` } : undefined}>
+                        {!media.media_url && <span>Sin preview</span>}
+                      </div>
+                      <p className="media-caption">{media.caption || '(sin caption)'}</p>
+                      <p className="media-meta">{media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
+                      {media.comment_error && <p className="media-error">{media.comment_error.slice(0, 100)}</p>}
+                      {media.permalink && <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver reel</a>}
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="activity-empty">Sin reels recientes en el último sync.</p>
             )}
-            {lastSyncData?.stories && lastSyncData.stories.length > 0 && (
-              <div className="media-grid media-grid--stories">
-                {lastSyncData.stories.map((story: any) => (
-                  <article key={story.id} className="media-preview-card media-preview-card--story">
-                    <div
-                      className="media-preview-thumb"
-                      style={story.media_url ? { backgroundImage: `url(${story.media_url})` } : undefined}
-                    >
-                      {!story.media_url && <span>Sin preview</span>}
-                    </div>
-                    <p className="media-caption">{story.caption || '(sin caption)'}</p>
-                    <p className="media-meta">{story.media_type} · {story.timestamp ? new Date(story.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—'}</p>
-                    {story.permalink && (
-                      <a className="media-link" href={story.permalink} target="_blank" rel="noreferrer">Ver historia</a>
-                    )}
-                  </article>
-                ))}
-              </div>
+
+            {mediaTab === 'stories' && (
+              storyMedia.length ? (
+                <div className="media-grid media-grid--compact">
+                  {storyMedia.map((story: any) => (
+                    <article key={story.id} className="media-preview-card media-preview-card--story">
+                      <div className="media-preview-thumb media-preview-thumb--compact" style={story.media_url ? { backgroundImage: `url(${story.media_url})` } : undefined}>
+                        {!story.media_url && <span>Sin preview</span>}
+                      </div>
+                      <p className="media-caption">{story.caption || '(sin caption)'}</p>
+                      <p className="media-meta">{story.timestamp ? new Date(story.timestamp).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '—'}</p>
+                      {story.permalink && <a className="media-link" href={story.permalink} target="_blank" rel="noreferrer">Ver historia</a>}
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="activity-empty">Sin historias activas.</p>
             )}
           </article>
           <article className="activity-card activity-card--stretch">
