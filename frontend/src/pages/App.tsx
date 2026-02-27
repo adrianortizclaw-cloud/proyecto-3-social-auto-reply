@@ -15,8 +15,6 @@ export function App() {
   const [platform, setPlatform] = useState('instagram');
   const [handle, setHandle] = useState('');
   const [persona, setPersona] = useState('Tono cercano, profesional y rápido.');
-  const [instagramToken, setInstagramToken] = useState('');
-  const [openaiKey, setOpenaiKey] = useState('');
 
   useEffect(() => {
     setToken(token);
@@ -54,8 +52,6 @@ export function App() {
       platform,
       account_handle: handle,
       prompt_persona: persona,
-      instagram_token: instagramToken || null,
-      openai_api_key: openaiKey || null,
       auto_mode: 'auto',
     });
     setMessage('Cuenta guardada; nosotros seguimos con los tokens.');
@@ -183,11 +179,7 @@ export function App() {
           <textarea className="field-input" value={persona} onChange={(e) => setPersona(e.target.value)} rows={3} />
 
           <div className="panel-foot">
-            <p className="panel-note">Opcional: si ya tienes un token largo de Instagram o una clave OpenAI puedes pegarlos aquí. Si no, lo generamos en segundo plano.</p>
-            <div className="panel-optional-grid">
-              <input className="field-input" placeholder="Token IG (opcional)" value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
-              <input className="field-input" placeholder="OpenAI API Key (opcional)" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} />
-            </div>
+            <p className="panel-note">Guardamos el app secret, la clave de OpenAI y el token de Instagram en nuestro backend seguro. Solo necesitas vincular la cuenta y nosotros hacemos el resto.</p>
           </div>
 
           <button className="btn primary" onClick={createAccount} disabled={!handle}>Guardar y preparar</button>
