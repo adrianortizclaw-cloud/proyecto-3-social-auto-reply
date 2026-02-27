@@ -10,8 +10,9 @@ from app.core.config import settings
 from app.core.security import encrypt_secret
 from app.models.models import OAuthConnection, OAuthState, SocialAccount
 
-GRAPH_BASE = "https://graph.facebook.com/v22.0"
-OAUTH_BASE = "https://www.facebook.com/v22.0/dialog/oauth"
+INSTAGRAM_AUTH_URL = "https://www.instagram.com/oauth/authorize"
+INSTAGRAM_SHORT_TOKEN_URL = "https://api.instagram.com/oauth/access_token"
+GRAPH_INSTAGRAM = "https://graph.instagram.com"
 logger = logging.getLogger(__name__)
 
 
@@ -25,9 +26,8 @@ def build_oauth_url(account_id: int, state: str) -> str:
         "state": state,
         "scope": ",".join(settings.meta_scopes),
     }
-    
-    logger.debug("building oauth url for account=%s state=%s client_id=%s", account_id, state, settings.meta_app_id)
-    return f"{OAUTH_BASE}?{urlencode(params)}"
+    logger.debug("building instagram business login url account=%s state=%s client_id=%s", account_id, state, settings.meta_app_id)
+    return f"{INSTAGRAM_AUTH_URL}?{urlencode(params)}"
 
 
 def create_oauth_state(db: Session, account: SocialAccount) -> str:
@@ -49,60 +49,57 @@ def consume_oauth_state(db: Session, state: str) -> OAuthState | None:
     return row
 
 
-def exchange_code_for_long_lived_token(code: str) -> tuple[str, int]:
+def _extract_short_token_payload(payload: dict) -> tuple[str, str, list[str]]:
+    data_nodes = payload.get("data")
+    if isinstance(data_nodes, list) and data_nodes:
+        info = data_nodes[0] or {}
+    else:
+        info = payload
+    access_token = info.get("access_token")
+    user_id = str(info.get("user_id") or info.get("instagram_user_id") or "").strip()
+    permissions_raw = info.get("permissions") or ""
+    permissions = [scope.strip() for scope in permissions_raw.split(",") if scope.strip()]
+    return access_token, user_id, permissions
+
+
+def exchange_code_for_short_lived_token(code: str) -> tuple[str, str, list[str]]:
     with httpx.Client(timeout=20.0) as client:
-        short_res = client.get(
-            f"{GRAPH_BASE}/oauth/access_token",
-            params={
+        response = client.post(
+            INSTAGRAM_SHORT_TOKEN_URL,
+            data={
                 "client_id": settings.meta_app_id,
-                "redirect_uri": settings.meta_redirect_uri,
                 "client_secret": settings.meta_app_secret,
+                "grant_type": "authorization_code",
+                "redirect_uri": settings.meta_redirect_uri,
                 "code": code,
             },
         )
-        short_res.raise_for_status()
-        short_token = short_res.json().get("access_token")
-        if not short_token:
+        response.raise_for_status()
+        access_token, user_id, permissions = _extract_short_token_payload(response.json() or {})
+        if not access_token:
             raise ValueError("short_lived_token_missing")
+        if not user_id:
+            raise ValueError("instagram_user_id_missing")
+        return access_token, user_id, permissions
 
+
+def exchange_short_lived_for_long_lived_token(short_token: str) -> tuple[str, int]:
+    with httpx.Client(timeout=20.0) as client:
         long_res = client.get(
-            f"{GRAPH_BASE}/oauth/access_token",
+            f"{GRAPH_INSTAGRAM}/access_token",
             params={
-                "grant_type": "fb_exchange_token",
-                "client_id": settings.meta_app_id,
+                "grant_type": "ig_exchange_token",
                 "client_secret": settings.meta_app_secret,
-                "fb_exchange_token": short_token,
+                "access_token": short_token,
             },
         )
         long_res.raise_for_status()
-        payload = long_res.json()
-        return payload["access_token"], int(payload.get("expires_in", 0))
-
-
-def discover_page_and_ig(token: str) -> tuple[str, str]:
-    with httpx.Client(timeout=20.0) as client:
-        pages_res = client.get(f"{GRAPH_BASE}/me/accounts", params={"access_token": token})
-        pages_res.raise_for_status()
-        pages = pages_res.json().get("data", [])
-        if not pages:
-            raise ValueError("no_pages_found")
-
-        for page in pages:
-            page_id = str(page.get("id", ""))
-            if not page_id:
-                continue
-            ig_res = client.get(
-                f"{GRAPH_BASE}/{page_id}",
-                params={"fields": "instagram_business_account", "access_token": token},
-            )
-            if ig_res.status_code != 200:
-                continue
-            ig_obj = (ig_res.json() or {}).get("instagram_business_account") or {}
-            ig_id = str(ig_obj.get("id", ""))
-            if ig_id:
-                return page_id, ig_id
-
-    raise ValueError("no_instagram_business_account_found")
+        payload = long_res.json() or {}
+        access_token = payload.get("access_token")
+        expires_in = int(payload.get("expires_in", 0))
+        if not access_token:
+            raise ValueError("long_lived_token_missing")
+        return access_token, expires_in
 
 
 def upsert_oauth_connection(

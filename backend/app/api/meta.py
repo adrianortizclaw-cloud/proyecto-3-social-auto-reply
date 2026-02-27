@@ -12,8 +12,8 @@ from app.services.meta_oauth_service import (
     build_oauth_url,
     consume_oauth_state,
     create_oauth_state,
-    discover_page_and_ig,
-    exchange_code_for_long_lived_token,
+    exchange_code_for_short_lived_token,
+    exchange_short_lived_for_long_lived_token,
     upsert_oauth_connection,
 )
 from app.services.audit_service import log_action
@@ -47,17 +47,24 @@ def oauth_callback(
         raise HTTPException(status_code=400, detail="invalid_or_expired_state")
 
     try:
-        token, expires_in = exchange_code_for_long_lived_token(code)
-        page_id, ig_business_account_id = discover_page_and_ig(token)
+        short_token, instagram_user_id, permissions = exchange_code_for_short_lived_token(code)
+        long_token, expires_in = exchange_short_lived_for_long_lived_token(short_token)
         upsert_oauth_connection(
             db=db,
             social_account_id=state_row.social_account_id,
-            token=token,
+            token=long_token,
             expires_in=expires_in,
-            page_id=page_id,
-            ig_business_account_id=ig_business_account_id,
+            page_id="",
+            ig_business_account_id=instagram_user_id,
         )
-        log_action(db, action="oauth_connected", entity_type="social_account", entity_id=str(state_row.social_account_id), detail=f"page_id={page_id},ig_id={ig_business_account_id}")
+        detail_scopes = ",".join(permissions) if permissions else ""
+        log_action(
+            db,
+            action="oauth_connected",
+            entity_type="social_account",
+            entity_id=str(state_row.social_account_id),
+            detail=f"ig_id={instagram_user_id}{' scopes=' + detail_scopes if detail_scopes else ''}",
+        )
     except Exception as exc:
         log_action(db, action="oauth_failed", entity_type="social_account", entity_id=str(state_row.social_account_id), detail=str(exc))
         raise HTTPException(status_code=400, detail=f"oauth_callback_failed: {exc}")
