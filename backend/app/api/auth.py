@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import secrets
@@ -14,6 +15,7 @@ from app.schemas.auth import (
 )
 from app.services.meta_oauth_service import build_oauth_url, create_oauth_state
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -51,11 +53,13 @@ def _ensure_owner_for_handle(db: Session, handle: str) -> User:
     alias_email = f"ig_{handle}@instagram.local"
     user = db.query(User).filter(User.email == alias_email).first()
     if user:
+        logger.debug("reuse owner for handle=%s email=%s", handle, alias_email)
         return user
     user = User(email=alias_email, password_hash=hash_password(secrets.token_urlsafe()))
     db.add(user)
     db.commit()
     db.refresh(user)
+    logger.debug("created owner id=%s handle=%s", user.id, handle)
     return user
 
 
@@ -74,6 +78,7 @@ def _ensure_account_for_owner(db: Session, owner: User, handle: str) -> SocialAc
         prompt_persona="Tono cercano y profesional.",
         auto_mode="auto",
     )
+    logger.debug("created social account id=%s owner=%s handle=%s", account.id, owner.id, handle)
     db.add(account)
     db.commit()
     db.refresh(account)
@@ -89,8 +94,10 @@ def instagram_start(payload: InstagramLoginRequest, db: Session = Depends(get_db
     owner = _ensure_owner_for_handle(db, handle)
     account = _ensure_account_for_owner(db, owner, handle)
     state = create_oauth_state(db, account)
+    logger.debug("instagram_start handle=%s owner_id=%s social_account=%s", handle, owner.id, account.id)
     try:
         url = build_oauth_url(account.id, state)
     except ValueError as exc:
+        logger.error("build oauth failed: %s", str(exc))
         raise HTTPException(status_code=500, detail=str(exc))
     return InstagramStartResponse(url=url, account_id=account.id)

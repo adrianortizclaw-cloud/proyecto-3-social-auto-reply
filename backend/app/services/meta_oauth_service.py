@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
@@ -11,6 +12,7 @@ from app.models.models import OAuthConnection, OAuthState, SocialAccount
 
 GRAPH_BASE = "https://graph.facebook.com/v22.0"
 OAUTH_BASE = "https://www.facebook.com/v22.0/dialog/oauth"
+logger = logging.getLogger(__name__)
 
 
 def build_oauth_url(account_id: int, state: str) -> str:
@@ -23,6 +25,8 @@ def build_oauth_url(account_id: int, state: str) -> str:
         "state": state,
         "scope": ",".join(settings.meta_scopes),
     }
+    
+    logger.debug("building oauth url for account=%s state=%s client_id=%s", account_id, state, settings.meta_app_id)
     return f"{OAUTH_BASE}?{urlencode(params)}"
 
 
