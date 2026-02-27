@@ -63,6 +63,36 @@ def _normalize_story(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+
+
+def _fetch_comments_for_media(client: httpx.Client, media_id: str, token: str, limit: int = 50, max_comments: int = 200) -> list[dict[str, Any]]:
+    comments: list[dict[str, Any]] = []
+    url = f"{INSTAGRAM_GRAPH_BASE}/{media_id}/comments"
+    params = {
+        "fields": "id,text,username,timestamp",
+        "limit": limit,
+        "filter": "stream",
+        "order": "reverse_chronological",
+        "access_token": token,
+    }
+    while url and len(comments) < max_comments:
+        request_params = params if params else None
+        try:
+            res = client.get(url, params=request_params)
+        except Exception as exc:
+            logger.warning('comment fetch error for %s: %s', media_id, exc)
+            break
+        if res.status_code != 200:
+            logger.warning('comments fetch failed for %s status=%s', media_id, res.status_code)
+            break
+        page = res.json() or {}
+        batch = page.get('data', [])
+        comments.extend(batch)
+        paging = page.get('paging', {})
+        url = paging.get('next')
+        params = None
+    return comments
 def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
     if not account.instagram_token_encrypted:
         return {"ok": False, "reason": "missing_instagram_token"}
@@ -148,24 +178,10 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
                 db.flush()
                 created_posts += 1
 
-            comments_edge = item.get("comments") or {}
-            comments_data = comments_edge.get("data", [])
-            if not comments_data:
-                comments_res = client.get(
-                    f"{INSTAGRAM_GRAPH_BASE}/{media_id}/comments",
-                    params={
-                        "fields": "id,text,username,timestamp",
-                        "limit": 50,
-                        "filter": "stream",
-                        "order": "reverse_chronological",
-                        "access_token": token,
-                    },
-                )
-                if comments_res.status_code != 200:
-                    logger.warning("comments fetch failed for %s status=%s", media_id, comments_res.status_code)
-                    comments_data = []
-                else:
-                    comments_data = comments_res.json().get("data", [])
+            comment_count = int(item.get("comments_count") or 0)
+            comments_data = []
+            if comment_count > 0:
+                comments_data = _fetch_comments_for_media(client, media_id, token)
             logger.debug("media=%s fetched %s comments", media_id, len(comments_data))
 
             for c in comments_data:
@@ -208,6 +224,7 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
             logger.warning("stories fetch failed for %s: %s", ig_user_id, exc)
 
         insights_data = _fetch_insights(client, ig_user_id, token)
+        story_count = len(stories_data)
 
     summary = {
         "stories": story_count,
