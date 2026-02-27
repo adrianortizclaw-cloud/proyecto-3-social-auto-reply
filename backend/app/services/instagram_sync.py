@@ -1,5 +1,7 @@
 from datetime import datetime
 import logging
+from typing import Any
+
 import httpx
 from sqlalchemy.orm import Session
 
@@ -19,7 +21,7 @@ def _to_datetime(value: str | None) -> datetime:
         return datetime.utcnow()
 
 
-def _fetch_insights(client: httpx.Client, user_id: str, token: str) -> dict:
+def _fetch_insights(client: httpx.Client, user_id: str, token: str) -> dict[str, Any]:
     try:
         res = client.get(
             f"{INSTAGRAM_GRAPH_BASE}/{user_id}/insights",
@@ -37,7 +39,31 @@ def _fetch_insights(client: httpx.Client, user_id: str, token: str) -> dict:
         return {}
 
 
-def sync_instagram(db: Session, account: SocialAccount) -> dict:
+def _normalize_media_details(item: dict[str, Any], fetched_comments: int) -> dict[str, Any]:
+    caption = (item.get("caption") or "").strip()
+    return {
+        "id": item.get("id"),
+        "type": item.get("media_type"),
+        "permalink": item.get("permalink"),
+        "caption": caption[:160],
+        "comment_count": int(item.get("comments_count") or 0),
+        "comments_fetched": fetched_comments,
+        "like_count": int(item.get("like_count") or 0),
+    }
+
+
+def _normalize_story(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": item.get("id"),
+        "permalink": item.get("permalink"),
+        "media_type": item.get("media_type"),
+        "timestamp": item.get("timestamp"),
+        "caption": item.get("caption") or "",
+        "media_url": item.get("media_url"),
+    }
+
+
+def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
     if not account.instagram_token_encrypted:
         return {"ok": False, "reason": "missing_instagram_token"}
 
@@ -60,13 +86,16 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
     reel_count = 0
     post_count = 0
     total_likes = 0
+    media_items: list[dict[str, Any]] = []
+    media_details: list[dict[str, Any]] = []
+    stories_data: list[dict[str, Any]] = []
+    insights_data: dict[str, Any] = {}
 
-    insights_data: dict = {}
     with httpx.Client(timeout=20.0) as client:
         media_res = client.get(
             f"{INSTAGRAM_GRAPH_BASE}/{ig_user_id}/media",
             params={
-                "fields": "id,caption,timestamp,media_type,like_count,comments_count",
+                "fields": "id,caption,timestamp,media_type,like_count,comments_count,permalink",
                 "limit": 10,
                 "access_token": token,
             },
@@ -88,7 +117,7 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
             if not media_id:
                 continue
 
-            kind = item.get("media_type", "").upper()
+            kind = (item.get("media_type") or "").upper()
             if kind == "STORY":
                 story_count += 1
             elif kind in {"REEL", "VIDEO"}:
@@ -124,6 +153,8 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
                 params={
                     "fields": "id,text,username,timestamp",
                     "limit": 50,
+                    "filter": "stream",
+                    "order": "reverse_chronological",
                     "access_token": token,
                 },
             )
@@ -158,6 +189,22 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
                     )
                 )
                 created_comments += 1
+
+            media_details.append(_normalize_media_details(item, len(comments_data)))
+        try:
+            stories_res = client.get(
+                f"{INSTAGRAM_GRAPH_BASE}/{ig_user_id}/stories",
+                params={
+                    "fields": "id,media_url,permalink,media_type,timestamp,caption",
+                    "access_token": token,
+                },
+            )
+            if stories_res.status_code == 200:
+                for story in stories_res.json().get("data", []):
+                    stories_data.append(_normalize_story(story))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("stories fetch failed for %s: %s", ig_user_id, exc)
+
         insights_data = _fetch_insights(client, ig_user_id, token)
 
     summary = {
@@ -176,4 +223,6 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict:
         "media_seen": len(media_items),
         "media_summary": summary,
         "insights": insights_data,
+        "media_details": media_details,
+        "stories": stories_data,
     }

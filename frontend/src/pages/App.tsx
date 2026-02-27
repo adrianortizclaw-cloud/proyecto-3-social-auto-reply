@@ -29,6 +29,7 @@ export function App() {
   const [handle, setHandle] = useState('');
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [graphInsights, setGraphInsights] = useState<Record<string, any> | null>(null);
+  const [syncDebug, setSyncDebug] = useState<Record<string, any> | null>(null);
   const backendOrigin = new URL(import.meta.env.VITE_API_BASE || 'http://localhost:8000').origin;
   const callbackOriginsRef = useRef<Set<string>>(new Set([backendOrigin]));
 
@@ -43,6 +44,7 @@ export function App() {
       setDashboard(null);
       setSyncSummary(null);
       setGraphInsights(null);
+      setSyncDebug(null);
     }
   }, [token]);
 
@@ -120,6 +122,8 @@ export function App() {
         ? ` | posts:${data.media_summary.posts ?? 0} reels:${data.media_summary.reels ?? 0} historias:${data.media_summary.stories ?? 0} likes:${data.media_summary.total_likes ?? 0}`
         : '';
       setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto:${auto.sent ?? 0}${summaryDetail}`);
+      setSyncDebug(data);
+      console.debug('sync response', data);
       await loadDashboard(selectedAccountId);
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
@@ -295,6 +299,47 @@ export function App() {
       <p className="status-row">
         {message || (selectedConnected ? 'Todo está listo. Pulsa Sincronizar si quieres forzar un refresco ahora.' : 'Activa la conexión desde el login para empezar a recoger datos.')}
       </p>
+
+      {syncDebug && (
+        <section className="sync-debug">
+          <div className="activity-head">
+            <div>
+              <p className="activity-eyebrow">Debug de sincronización</p>
+              <h2>Respuesta del sync</h2>
+            </div>
+          </div>
+          <div className="sync-debug-grid">
+            {syncDebug.media_details?.map((media: any) => (
+              <article key={media.id} className="sync-debug-card">
+                <p className="insight-label">{media.type}</p>
+                <p className="insight-value">{media.comments_fetched}/{media.comment_count} comentarios</p>
+                <p className="insight-detail">{media.caption || '(sin caption)'}</p>
+                {media.permalink && (
+                  <a className="sync-debug-link" href={media.permalink} target="_blank" rel="noreferrer">Ver publicación</a>
+                )}
+              </article>
+            ))}
+          </div>
+          {syncDebug.stories && syncDebug.stories.length > 0 && (
+            <div className="sync-debug-grid">
+              {syncDebug.stories.map((story: any) => (
+                <article key={story.id} className="sync-debug-card">
+                  <p className="insight-label">Historia</p>
+                  <p className="insight-value">{story.media_type}</p>
+                  <p className="insight-detail">{story.caption || '(sin caption)'}</p>
+                  {story.media_url && (
+                    <a className="sync-debug-link" href={story.media_url} target="_blank" rel="noreferrer">Ver story</a>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+          <details className="sync-debug-json-wrap">
+            <summary>Ver payload completo</summary>
+            <pre className="sync-debug-json">{JSON.stringify(syncDebug, null, 2)}</pre>
+          </details>
+        </section>
+      )}
 
       <section className="activity-panel">
         <div className="activity-head">
