@@ -276,6 +276,9 @@ export function App() {
 
   const formatCommentError = (error: string) => {
     if (!error) return '';
+    if (error.includes('missing_scope:instagram_business_manage_comments')) {
+      return 'Falta el permiso instagram_business_manage_comments en el login.';
+    }
     if (error.includes('OAuthException') || error.includes('code":190')) {
       return 'No autorizado para leer comentarios con este token.';
     }

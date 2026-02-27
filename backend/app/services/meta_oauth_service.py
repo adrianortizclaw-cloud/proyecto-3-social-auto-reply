@@ -114,8 +114,10 @@ def upsert_oauth_connection(
     expires_in: int,
     page_id: str,
     ig_business_account_id: str,
+    granted_scopes: list[str] | None = None,
 ):
     expires_at = datetime.utcnow() + timedelta(seconds=max(expires_in, 0))
+    effective_scopes = granted_scopes or settings.meta_scopes
     row = db.query(OAuthConnection).filter(OAuthConnection.social_account_id == social_account_id).first()
     if not row:
         row = OAuthConnection(
@@ -124,7 +126,7 @@ def upsert_oauth_connection(
             expires_at=expires_at,
             page_id=page_id,
             ig_business_account_id=ig_business_account_id,
-            scopes=",".join(settings.meta_scopes),
+            scopes=",".join(effective_scopes),
         )
         db.add(row)
     else:
@@ -132,7 +134,7 @@ def upsert_oauth_connection(
         row.expires_at = expires_at
         row.page_id = page_id
         row.ig_business_account_id = ig_business_account_id
-        row.scopes = ",".join(settings.meta_scopes)
+        row.scopes = ",".join(effective_scopes)
 
     account = db.get(SocialAccount, social_account_id)
     if account:

@@ -56,6 +56,7 @@ def oauth_callback(
             expires_in=expires_in,
             page_id="",
             ig_business_account_id=instagram_user_id,
+            granted_scopes=permissions,
         )
         detail_scopes = ",".join(permissions) if permissions else ""
         log_action(

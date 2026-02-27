@@ -6,7 +6,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.security import decrypt_secret
-from app.models.models import Comment, Post, SocialAccount
+from app.models.models import Comment, OAuthConnection, Post, SocialAccount
 
 logger = logging.getLogger(__name__)
 INSTAGRAM_GRAPH_BASE = "https://graph.instagram.com"
@@ -152,6 +152,11 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
             "hint": "Use the Instagram Business Account ID",
         }
 
+    connection = db.query(OAuthConnection).filter(OAuthConnection.social_account_id == account.id).first()
+    granted_scopes = set()
+    if connection and connection.scopes:
+        granted_scopes = {s.strip() for s in connection.scopes.split(",") if s.strip()}
+
     created_posts = 0
     created_comments = 0
     reel_count = 0
@@ -231,7 +236,13 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
             comment_count = int(item.get("comments_count") or 0)
             comments_data: list[dict[str, Any]] = []
             comment_error = ""
-            if comment_count > 0:
+            has_comment_scope = (
+                "instagram_business_manage_comments" in granted_scopes
+                or "instagram_manage_comments" in granted_scopes
+            )
+            if comment_count > 0 and not has_comment_scope:
+                comment_error = "missing_scope:instagram_business_manage_comments"
+            elif comment_count > 0:
                 comments_data, comment_error = _fetch_comments_for_media(client, media_id, token)
 
             for c in comments_data:
@@ -296,4 +307,5 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
         "stories": stories_data,
         "synced_at": synced_at,
         "user": user_profile,
+        "granted_scopes": sorted(granted_scopes),
     }
