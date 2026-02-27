@@ -159,7 +159,7 @@ export function App() {
           <button className="btn primary login-btn" onClick={startInstagramLogin} disabled={!handle.trim()}>
             Continuar con Instagram
           </button>
-          <p className="login-note">{message || 'Abriremos el login oficial de Instagram (scopes: instagram_business_basic, content_publish, manage_messages/comments, manage_insights). No necesitas Facebook ni email.'}</p>
+          <p className="login-note">{message || 'Abriremos el login oficial de Instagram (scopes: instagram_business_basic, content_publish, manage_messages/comments). No necesitas Facebook ni email.'}</p>
         </div>
       </div>
     );

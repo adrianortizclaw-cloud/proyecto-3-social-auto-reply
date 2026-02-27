@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_redirect_uri: str = "http://localhost:8000/api/meta/oauth/callback"
-    meta_scopes_csv: str = "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_manage_insights"
+    meta_scopes_csv: str = "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments"
     meta_webhook_verify_token: str = "dev-meta-webhook-token"
 
     @field_validator("app_secret_key")
