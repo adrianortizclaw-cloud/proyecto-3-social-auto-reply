@@ -29,9 +29,20 @@ export function App() {
   const [handle, setHandle] = useState('');
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [graphInsights, setGraphInsights] = useState<Record<string, any> | null>(null);
-  const [syncDebug, setSyncDebug] = useState<Record<string, any> | null>(null);
+  const [lastSyncData, setLastSyncData] = useState<{ media_details: any[]; stories: any[] } | null>(null);
+  const [instagramProfile, setInstagramProfile] = useState<{ username?: string; profile_picture_url?: string } | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const backendOrigin = new URL(import.meta.env.VITE_API_BASE || 'http://localhost:8000').origin;
   const callbackOriginsRef = useRef<Set<string>>(new Set([backendOrigin]));
+  const formatDateTime = (value: string | null) =>
+    value
+      ? new Date(value).toLocaleString('es-ES', {
+          day: '2-digit',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'Nunca';
 
   useEffect(() => {
     setToken(token);
@@ -44,7 +55,9 @@ export function App() {
       setDashboard(null);
       setSyncSummary(null);
       setGraphInsights(null);
-      setSyncDebug(null);
+      setLastSyncData(null);
+      setInstagramProfile(null);
+      setLastSyncedAt(null);
     }
   }, [token]);
 
@@ -118,11 +131,14 @@ export function App() {
       if (data.insights) {
         setGraphInsights(data.insights);
       }
-      const summaryDetail = data.media_summary
-        ? ` | posts:${data.media_summary.posts ?? 0} reels:${data.media_summary.reels ?? 0} historias:${data.media_summary.stories ?? 0} likes:${data.media_summary.total_likes ?? 0}`
-        : '';
-      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto:${auto.sent ?? 0}${summaryDetail}`);
-      setSyncDebug(data);
+      setLastSyncData({ media_details: data.media_details || [], stories: data.stories || [] });
+      if (data.user) {
+        setInstagramProfile(data.user);
+      }
+      setLastSyncedAt(data.synced_at || new Date().toISOString());
+      setMessage(
+        `Sincronización completada · posts:${data.created_posts ?? 0} comentarios:${data.created_comments ?? 0} · auto:${auto.sent ?? 0}`
+      );
       console.debug('sync response', data);
       await loadDashboard(selectedAccountId);
     } catch (err: any) {
@@ -138,6 +154,10 @@ export function App() {
       const { data } = await api.get(`/api/dashboard/${accountId}`);
       console.debug('dashboard response', { posts: data.latest_posts?.length, comments: data.latest_comments?.length });
       setDashboard(data);
+      setLastSyncedAt(data.last_synced_at ?? lastSyncedAt);
+      if (data.profile) {
+        setInstagramProfile(data.profile);
+      }
     } catch (err: any) {
       console.error('dashboard load failed', err?.response?.data || err?.message);
       if (err?.response?.status === 401) {
@@ -188,7 +208,9 @@ export function App() {
   const replies = dashboard?.latest_replies || [];
   const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
   const selectedConnected = Boolean(selectedAccount?.connected);
-  const lastSyncLabel = dashboard?.last_synced_at || dashboard?.last_sync || 'Nunca';
+  const displayName = instagramProfile?.username ?? (selectedAccount ? selectedAccount.account_handle : 'Cuenta de Instagram');
+  const heroAvatarLetter = displayName ? displayName.charAt(0).toUpperCase() : 'I';
+  const lastSyncLabel = formatDateTime(lastSyncedAt);
   const insights = [
     {
       label: 'Estado de conexión',
@@ -198,7 +220,7 @@ export function App() {
     {
       label: 'Última sincronización',
       value: lastSyncLabel,
-      detail: 'Verifica los datos si ha pasado mucho tiempo',
+      detail: lastSyncedAt ? 'Actualizado recientemente' : 'Sin sincronizaciones aún',
     },
     {
       label: 'Comentarios nuevos',
@@ -252,20 +274,28 @@ export function App() {
 
   return (
     <div className="client-shell">
-      <header className="client-hero client-hero--compact">
-        <div>
-          <p className="hero-eyebrow">Estado de conexión</p>
-          <h1>
-            {selectedAccount ? `${selectedAccount.platform.toUpperCase()} · ${selectedAccount.account_handle}` : 'Cuenta de Instagram'}
-          </h1>
-          <p className="hero-subhead">
-            {selectedConnected ? 'Cuenta conectada y lista para sincronizar.' : 'Sin token activo. Conecta primero para recibir comentarios.'}
-          </p>
+      <header className="client-hero client-hero--compact client-hero--premium">
+        <div className="hero-identity">
+          <div className="hero-avatar">
+            {instagramProfile?.profile_picture_url ? (
+              <img src={instagramProfile.profile_picture_url} alt={displayName} />
+            ) : (
+              <span>{heroAvatarLetter}</span>
+            )}
+          </div>
+          <div>
+            <p className="hero-eyebrow">{instagramProfile?.username ? 'Instagram · Conectado' : 'Instagram'}</p>
+            <h1>{displayName}</h1>
+            <p className="hero-subhead">
+              {selectedConnected ? 'Cuenta conectada y lista para sincronizar.' : 'Sin token activo. Conecta primero para recibir comentarios.'}
+            </p>
+          </div>
         </div>
         <div className="hero-actions hero-actions--sync">
           <div className="hero-meta">
             <p>Última sincronización</p>
             <strong>{lastSyncLabel}</strong>
+            <p className="hero-meta-detail">{lastSyncedAt ? 'actualizado recientemente' : 'nunca sincronizado'}</p>
           </div>
           <button className="btn primary" onClick={syncAccount} disabled={!selectedConnected}>
             Sincronizar ahora
@@ -323,47 +353,6 @@ export function App() {
         {message || (selectedConnected ? 'Todo está listo. Pulsa Sincronizar si quieres forzar un refresco ahora.' : 'Activa la conexión desde el login para empezar a recoger datos.')}
       </p>
 
-      {syncDebug && (
-        <section className="sync-debug">
-          <div className="activity-head">
-            <div>
-              <p className="activity-eyebrow">Debug de sincronización</p>
-              <h2>Respuesta del sync</h2>
-            </div>
-          </div>
-          <div className="sync-debug-grid">
-            {syncDebug.media_details?.map((media: any) => (
-              <article key={media.id} className="sync-debug-card">
-                <p className="insight-label">{media.type}</p>
-                <p className="insight-value">{media.comments_fetched}/{media.comment_count} comentarios</p>
-                <p className="insight-detail">{media.caption || '(sin caption)'}</p>
-                {media.permalink && (
-                  <a className="sync-debug-link" href={media.permalink} target="_blank" rel="noreferrer">Ver publicación</a>
-                )}
-              </article>
-            ))}
-          </div>
-          {syncDebug.stories && syncDebug.stories.length > 0 && (
-            <div className="sync-debug-grid">
-              {syncDebug.stories.map((story: any) => (
-                <article key={story.id} className="sync-debug-card">
-                  <p className="insight-label">Historia</p>
-                  <p className="insight-value">{story.media_type}</p>
-                  <p className="insight-detail">{story.caption || '(sin caption)'}</p>
-                  {story.media_url && (
-                    <a className="sync-debug-link" href={story.media_url} target="_blank" rel="noreferrer">Ver story</a>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-          <details className="sync-debug-json-wrap">
-            <summary>Ver payload completo</summary>
-            <pre className="sync-debug-json">{JSON.stringify(syncDebug, null, 2)}</pre>
-          </details>
-        </section>
-      )}
-
       <section className="activity-panel">
         <div className="activity-head">
           <div>
@@ -387,9 +376,9 @@ export function App() {
           </article>
           <article className="activity-card activity-card--stretch">
             <h3>Reels + historias</h3>
-            {syncDebug?.media_details?.length ? (
+            {lastSyncData?.media_details?.length ? (
               <div className="media-grid">
-                {syncDebug.media_details.map((media: any) => (
+                {lastSyncData.media_details.map((media: any) => (
                   <article key={media.id} className="media-preview-card">
                     <div
                       className="media-preview-thumb"
@@ -420,9 +409,9 @@ export function App() {
                 {!reels.length && <li className="activity-empty">Sin reels recientes.</li>}
               </ul>
             )}
-            {syncDebug?.stories && syncDebug.stories.length > 0 && (
+            {lastSyncData?.stories && lastSyncData.stories.length > 0 && (
               <div className="media-grid media-grid--stories">
-                {syncDebug.stories.map((story: any) => (
+                {lastSyncData.stories.map((story: any) => (
                   <article key={story.id} className="media-preview-card media-preview-card--story">
                     <div
                       className="media-preview-thumb"

@@ -121,6 +121,7 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
     media_details: list[dict[str, Any]] = []
     stories_data: list[dict[str, Any]] = []
     insights_data: dict[str, Any] = {}
+    user_profile: dict[str, Any] = {}
 
     with httpx.Client(timeout=20.0) as client:
         media_res = client.get(
@@ -142,6 +143,19 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
 
         media_items = media_res.json().get("data", [])
         logger.debug("fetched %s media items for %s", len(media_items), ig_user_id)
+
+        try:
+            profile_res = client.get(
+                f"{INSTAGRAM_GRAPH_BASE}/{ig_user_id}",
+                params={
+                    "fields": "username,profile_picture_url",
+                    "access_token": token,
+                },
+            )
+            if profile_res.status_code == 200:
+                user_profile = profile_res.json() or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("failed to fetch instagram profile %s: %s", ig_user_id, exc)
 
         for item in media_items:
             media_id = str(item.get("id"))
@@ -233,6 +247,7 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
         "synced_comments": created_comments,
     }
 
+    synced_at = datetime.utcnow().isoformat()
     db.commit()
     return {
         "ok": True,
@@ -243,4 +258,6 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
         "insights": insights_data,
         "media_details": media_details,
         "stories": stories_data,
+        "synced_at": synced_at,
+        "user": user_profile,
     }
