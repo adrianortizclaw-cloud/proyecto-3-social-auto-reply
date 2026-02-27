@@ -141,6 +141,48 @@ export function App() {
   const replies = dashboard?.latest_replies || [];
   const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
   const selectedConnected = Boolean(selectedAccount?.connected);
+  const lastSyncLabel = dashboard?.last_synced_at || dashboard?.last_sync || 'Nunca';
+  const insights = [
+    {
+      label: 'Estado de conexión',
+      value: selectedConnected ? 'Listo' : 'Pendiente',
+      detail: selectedConnected ? 'Token activo' : 'Token requerido',
+    },
+    {
+      label: 'Última sincronización',
+      value: lastSyncLabel,
+      detail: 'Verifica los datos si ha pasado mucho tiempo',
+    },
+    {
+      label: 'Comentarios nuevos',
+      value: comments.length,
+      detail: `${comments.length} sin respuesta`,
+    },
+    {
+      label: 'Respuestas enviadas',
+      value: replies.length,
+      detail: replies.length ? 'Última respuesta generada hace poco' : 'Aún no generadas',
+    },
+  ];
+
+  const quickActions = [
+    {
+      label: 'Sincronizar ahora',
+      action: syncAccount,
+      disabled: !selectedConnected,
+    },
+    {
+      label: 'Vincular Instagram',
+      action: () => selectedAccount && connectInstagram(selectedAccount.id),
+      disabled: !selectedAccount || connectingAccountId === selectedAccount.id,
+    },
+    {
+      label: 'Actualizar dashboard',
+      action: () => selectedAccountId && loadDashboard(selectedAccountId),
+      disabled: !selectedAccountId,
+    },
+  ];
+
 
   const heroStats = [
     { label: 'Publicaciones monitorizadas', value: posts.length },
@@ -162,6 +204,24 @@ export function App() {
           <button className="btn primary" onClick={syncAccount} disabled={!selectedConnected}>Sincronizar cuenta</button>
         </div>
       </header>
+
+      <section className="insight-row">
+        {insights.map((insight) => (
+          <article key={insight.label} className="insight-card">
+            <p className="insight-label">{insight.label}</p>
+            <p className="insight-value">{insight.value}</p>
+            <p className="insight-detail">{insight.detail}</p>
+          </article>
+        ))}
+      </section>
+
+      <div className="quick-actions">
+        {quickActions.map((action) => (
+          <button key={action.label} className="btn action-btn" onClick={action.action} disabled={action.disabled}>
+            {action.label}
+          </button>
+        ))}
+      </div>
 
       <p className="status-row">{message || 'Selecciona una cuenta, vincúlala y los comentarios llegarán solos.'}</p>
 

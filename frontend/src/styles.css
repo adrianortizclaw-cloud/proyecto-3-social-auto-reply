@@ -189,6 +189,61 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
 }
+.insight-row {
+  margin: 20px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.insight-card {
+  border-radius: 14px;
+  padding: 16px;
+  background: linear-gradient(160deg, rgba(92, 110, 248, 0.08), rgba(99, 102, 241, 0.18));
+  border: 1px solid rgba(92, 110, 248, 0.2);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.1);
+}
+
+.insight-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.insight-value {
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.insight-detail {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 12px;
+}
+
+.quick-actions {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.action-btn {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 14px;
+  padding: 10px 16px;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+}
 
 .stat-card {
   background: var(--panel);
