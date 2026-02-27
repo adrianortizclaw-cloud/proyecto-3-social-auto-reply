@@ -58,7 +58,7 @@ export function App() {
       openai_api_key: openaiKey || null,
       auto_mode: 'auto',
     });
-    setMessage('Cuenta creada ✅');
+    setMessage('Cuenta guardada; nosotros seguimos con los tokens.');
     setHandle('');
     setInstagramToken('');
     setOpenaiKey('');
@@ -70,11 +70,11 @@ export function App() {
     try {
       const { data } = await api.post(`/api/dashboard/${selectedAccountId}/sync`);
       const auto = data.auto_reply || {};
-      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto sent:${auto.sent ?? 0} skipped:${auto.skipped ?? 0} failed:${auto.failed ?? 0}`);
+      setMessage(`Sync OK ✅ posts:${data.created_posts ?? 0} comments:${data.created_comments ?? 0} | auto:${auto.sent ?? 0}`);
       await loadDashboard(selectedAccountId);
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      const reason = detail?.reason || err?.response?.data?.reason || 'unknown_error';
+      const reason = detail?.reason || err?.response?.data?.reason || 'error desconocido';
       const metaDetail = detail?.detail ? ` | meta: ${String(detail.detail).slice(0, 220)}` : '';
       setMessage(`Sync falló: ${reason}${metaDetail}`);
     }
@@ -99,19 +99,24 @@ export function App() {
 
   if (!token) {
     return (
-      <div className="login-wrap">
-        <main className="card login-card">
-          <h1 className="title">Social Auto Reply</h1>
-          <p className="subtitle">Accede al panel para gestionar cuentas y respuestas.</p>
-          <label className="label">Email</label>
-          <input className="input" placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <label className="label">Password</label>
-          <input className="input" placeholder="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="btn" onClick={register}>Register</button>
-            <button className="btn ghost" onClick={login}>Login</button>
+      <div className="auth-screen">
+        <div className="auth-shell">
+          <div className="auth-content">
+            <p className="eyebrow">Proyecto 3</p>
+            <h1>Social Auto-Reply</h1>
+            <p className="subhead">Accede con tu cuenta para orquestar clientes y automatizaciones.</p>
           </div>
-        </main>
+          <div className="auth-form">
+            <label className="field-label">Email</label>
+            <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tuno@cliente.com" />
+            <label className="field-label">Contraseña</label>
+            <input className="field-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <div className="auth-actions">
+              <button className="btn primary" onClick={register}>Registrarme</button>
+              <button className="btn ghost" onClick={login}>Entrar</button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -120,114 +125,187 @@ export function App() {
   const reels = dashboard?.latest_reels || [];
   const comments = dashboard?.latest_comments || [];
   const replies = dashboard?.latest_replies || [];
+  const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
+
+  const heroStats = [
+    { label: 'Publicaciones monitorizadas', value: posts.length },
+    { label: 'Reels en radar', value: reels.length },
+    { label: 'Comentarios nuevos', value: comments.length },
+    { label: 'Respuestas enviadas', value: replies.length },
+  ];
 
   return (
-    <main className="app">
-      <div className="header">
+    <div className="client-shell">
+      <header className="client-hero">
         <div>
-          <h1 className="title">Dashboard</h1>
-          <p className="subtitle">Gestiona cuentas, sincroniza Instagram y revisa actividad reciente.</p>
+          <p className="hero-eyebrow">Panorama social · Proyecto 3</p>
+          <h1>Tu cliente conecta con Instagram sin líos.</h1>
+          <p className="hero-subhead">Nosotros gestionamos los tokens, la sincronización y las respuestas. Tú solo pide permiso y comprueba el resultado.</p>
         </div>
-        <button className="btn ghost" onClick={() => setAuthToken(null)}>Logout</button>
+        <div className="hero-actions">
+          <button className="btn ghost" onClick={() => setAuthToken(null)}>Cerrar sesión</button>
+          <button className="btn primary" onClick={syncAccount} disabled={!selectedAccountId}>Sincronizar cuenta</button>
+        </div>
+      </header>
+
+      <p className="status-row">{message || 'Selecciona una cuenta, sincroniza y revisa la actividad reciente.'}</p>
+
+      <div className="stats-row">
+        {heroStats.map((stat) => (
+          <article key={stat.label} className="stat-card">
+            <div className="stat-value">{stat.value}</div>
+            <p className="stat-label">{stat.label}</p>
+          </article>
+        ))}
       </div>
 
-      <p className="status">{message}</p>
+      <section className="client-grid">
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="panel-eyebrow">Onboarding rápido</p>
+              <h2>Conecta un nuevo cliente</h2>
+              <p className="panel-subhead">Solo necesitamos el identificador de la cuenta y el tono. El token de Instagram lo generamos nosotros con el login.</p>
+            </div>
+          </div>
 
-      <section className="grid">
-        <article className="card">
-          <h2>Nueva cuenta social</h2>
-          <label className="label">Plataforma + Instagram User ID (numérico)</label>
-          <div className="row">
-            <select className="select" value={platform} onChange={(e) => setPlatform(e.target.value)}>
+          <label className="field-label">Cuenta</label>
+          <div className="input-row">
+            <select className="field-input" value={platform} onChange={(e) => setPlatform(e.target.value)}>
               <option value="instagram">Instagram</option>
               <option value="facebook">Facebook</option>
               <option value="x">X</option>
             </select>
-            <input className="input" placeholder="IG User ID o Page ID (numérico)" value={handle} onChange={(e) => setHandle(e.target.value)} />
+            <input className="field-input" placeholder="@nombre_cliente o ID numérico" value={handle} onChange={(e) => setHandle(e.target.value)} />
           </div>
 
-          <label className="label">Prompt de personalidad</label>
-          <textarea className="textarea" value={persona} onChange={(e) => setPersona(e.target.value)} />
+          <label className="field-label">Tono sugerido</label>
+          <textarea className="field-input" value={persona} onChange={(e) => setPersona(e.target.value)} rows={3} />
 
-          <label className="label">Instagram Access Token</label>
-          <input className="input" placeholder="IGAA..." value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
+          <div className="panel-foot">
+            <p className="panel-note">Opcional: si ya tienes un token largo de Instagram o una clave OpenAI puedes pegarlos aquí. Si no, lo generamos en segundo plano.</p>
+            <div className="panel-optional-grid">
+              <input className="field-input" placeholder="Token IG (opcional)" value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
+              <input className="field-input" placeholder="OpenAI API Key (opcional)" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} />
+            </div>
+          </div>
 
-          <label className="label">OpenAI API Key</label>
-          <input className="input" placeholder="sk-..." value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} />
-
-          <button className="btn" style={{ marginTop: 10 }} onClick={createAccount}>Guardar cuenta</button>
+          <button className="btn primary" onClick={createAccount} disabled={!handle}>Guardar y preparar</button>
         </article>
 
-        <article className="card">
-          <h2>Cuentas conectadas</h2>
-          <div className="account-list">
-            {accounts.map((acc) => (
-              <div className="account-item" key={acc.id}>
-                <div>
-                  <strong>{acc.platform}</strong> · {acc.account_handle}
-                  <div className="meta">#{acc.id}</div>
-                </div>
-                <button className="btn ghost" onClick={() => { setSelectedAccountId(acc.id); loadDashboard(acc.id); }}>
-                  Abrir
-                </button>
-              </div>
-            ))}
+        <article className="panel panel--accent">
+          <div className="panel-head">
+            <div>
+              <p className="panel-eyebrow">Cuentas activas</p>
+              <h2>{selectedAccount ? `${selectedAccount.platform.toUpperCase()} · ${selectedAccount.account_handle}` : 'Elige una cuenta'}</h2>
+              <p className="panel-subhead">Selecciona una cuenta para ver la actividad y generar respuestas.</p>
+            </div>
+            <button className="btn secondary" onClick={syncAccount} disabled={!selectedAccountId}>Sync ahora</button>
           </div>
-          <button className="btn success" style={{ marginTop: 10 }} onClick={syncAccount} disabled={!selectedAccountId}>
-            Sync real Instagram
-          </button>
+
+          <div className="account-list">
+            {accounts.length ? (
+              accounts.map((acc) => (
+                <button
+                  key={acc.id}
+                  className={`account-pill ${selectedAccountId === acc.id ? 'account-pill--active' : ''}`}
+                  onClick={() => {
+                    setSelectedAccountId(acc.id);
+                    loadDashboard(acc.id);
+                  }}
+                >
+                  <span>
+                    <strong>{acc.platform}</strong> · {acc.account_handle}
+                    <br />
+                    <small>ID #{acc.id}</small>
+                  </span>
+                  <span className="pill-meta">{acc.prompt_persona}</span>
+                </button>
+              ))
+            ) : (
+              <p className="panel-note">Todavía no hay cuentas. Empieza creando una y nosotros te guiamos con el onboarding.</p>
+            )}
+          </div>
         </article>
       </section>
 
-      <section className="card" style={{ marginTop: 16 }}>
-        <div className="kpis">
-          <div className="kpi"><div className="n">{posts.length}</div><div className="t">Últimas publicaciones</div></div>
-          <div className="kpi"><div className="n">{reels.length}</div><div className="t">Últimos reels</div></div>
-          <div className="kpi"><div className="n">{comments.length}</div><div className="t">Últimos comentarios</div></div>
-          <div className="kpi"><div className="n">{replies.length}</div><div className="t">Últimas respuestas</div></div>
+      <section className="activity-panel">
+        <div className="activity-head">
+          <div>
+            <p className="activity-eyebrow">Actividad reciente</p>
+            <h2>Lo que estamos monitorizando</h2>
+          </div>
+          <button className="btn ghost" onClick={() => selectedAccountId && loadDashboard(selectedAccountId)} disabled={!selectedAccountId}>Actualizar datos</button>
         </div>
 
-        <section className="grid">
-          <article>
-            <h2>Publicaciones</h2>
-            <ul className="list">{posts.map((x: any) => <li key={x.id}>{x.text || '(sin caption)'}<div className="small">{x.created_at}</div></li>)}</ul>
-          </article>
-          <article>
-            <h2>Reels</h2>
-            <ul className="list">{reels.map((x: any) => <li key={x.id}>{x.text || '(sin caption)'}<div className="small">{x.created_at}</div></li>)}</ul>
-          </article>
-          <article>
-            <h2>Comentarios</h2>
-            <ul className="list">
-              {comments.map((x: any) => {
-                const internalCommentId = x.comment_id ?? (Number.isFinite(Number(x.id)) ? Number(x.id) : null);
-                return (
-                  <li key={`${x.id}-${x.comment_id ?? 'na'}`}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div>{x.text}</div>
-                        <div className="small">{x.created_at}</div>
-                      </div>
-                      <button
-                        className="btn ghost"
-                        onClick={() => internalCommentId && generateReply(Number(internalCommentId))}
-                        disabled={!internalCommentId}
-                        title={internalCommentId ? 'Generar respuesta para este comentario' : 'Falta comment_id interno; haz rebuild y sync'}
-                      >
-                        Generar respuesta
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
+        <div className="activity-grid">
+          <article className="activity-card">
+            <h3>Publicaciones</h3>
+            <ul className="activity-list">
+              {posts.map((x: any) => (
+                <li key={x.id}>
+                  <strong>{x.text ? x.text.slice(0, 60) : '(sin caption)'}</strong>
+                  <p className="small">{x.created_at}</p>
+                </li>
+              ))}
+              {!posts.length && <li className="activity-empty">Sin publicaciones por ahora.</li>}
             </ul>
           </article>
-          <article>
-            <h2>Respuestas</h2>
-            <ul className="list">{replies.map((x: any) => <li key={x.id}>{x.text}<div className="small">{x.created_at}</div></li>)}</ul>
+          <article className="activity-card">
+            <h3>Reels + historias</h3>
+            <ul className="activity-list">
+              {reels.map((x: any) => (
+                <li key={x.id}>
+                  <strong>{x.text ? x.text.slice(0, 60) : '(sin información)'}</strong>
+                  <p className="small">{x.created_at}</p>
+                </li>
+              ))}
+              {!reels.length && <li className="activity-empty">Sin reels recientes.</li>}
+            </ul>
           </article>
-        </section>
+          <article className="activity-card activity-card--stretch">
+            <h3>Comentarios y respuestas automáticas</h3>
+            <div className="comment-grid">
+              {comments.length ? (
+                comments.map((x: any) => {
+                  const internalCommentId = x.comment_id ?? (Number.isFinite(Number(x.id)) ? Number(x.id) : null);
+                  return (
+                    <div key={`${x.id}-${x.comment_id ?? 'na'}`} className="comment-row">
+                      <div>
+                        <p className="comment-text">{x.text}</p>
+                        <p className="small">{x.created_at}</p>
+                      </div>
+                      <button
+                        className="btn tertiary"
+                        onClick={() => internalCommentId && generateReply(Number(internalCommentId))}
+                        disabled={!internalCommentId}
+                      >
+                        {internalCommentId ? 'Generar respuesta' : 'Falta comment_id'}
+                      </button>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="activity-empty">Los comentarios se llenan tras la primera sincronización.</p>
+              )}
+            </div>
+          </article>
+        </div>
+
+        {replies.length > 0 && (
+          <article className="activity-card">
+            <h3>Respuestas enviadas</h3>
+            <ul className="activity-list">
+              {replies.map((x: any) => (
+                <li key={x.id}>
+                  <strong>{x.text.slice(0, 80)}</strong>
+                  <p className="small">{x.created_at}</p>
+                </li>
+              ))}
+            </ul>
+          </article>
+        )}
       </section>
-    </main>
+    </div>
   );
 }
