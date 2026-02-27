@@ -274,6 +274,14 @@ export function App() {
       })
     : [];
 
+  const formatCommentError = (error: string) => {
+    if (!error) return '';
+    if (error.includes('OAuthException') || error.includes('code":190')) {
+      return 'No autorizado para leer comentarios con este token.';
+    }
+    return error.slice(0, 120);
+  };
+
 
 
   return (
@@ -384,7 +392,7 @@ export function App() {
                       </div>
                       <p className="media-caption">{media.caption || '(sin caption)'}</p>
                       <p className="media-meta">{media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
-                      {media.comment_error && <p className="media-error">{media.comment_error.slice(0, 100)}</p>}
+                      {media.comment_error && <p className="media-error">{formatCommentError(media.comment_error)}</p>}
                       {media.permalink && <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver publicación</a>}
                     </article>
                   ))}
@@ -402,7 +410,7 @@ export function App() {
                       </div>
                       <p className="media-caption">{media.caption || '(sin caption)'}</p>
                       <p className="media-meta">{media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
-                      {media.comment_error && <p className="media-error">{media.comment_error.slice(0, 100)}</p>}
+                      {media.comment_error && <p className="media-error">{formatCommentError(media.comment_error)}</p>}
                       {media.permalink && <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver reel</a>}
                     </article>
                   ))}

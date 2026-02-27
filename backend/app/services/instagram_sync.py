@@ -10,7 +10,6 @@ from app.models.models import Comment, Post, SocialAccount
 
 logger = logging.getLogger(__name__)
 INSTAGRAM_GRAPH_BASE = "https://graph.instagram.com"
-FACEBOOK_GRAPH_BASE = "https://graph.facebook.com/v22.0"
 
 
 def _to_datetime(value: str | None) -> datetime:
@@ -75,41 +74,55 @@ def _fetch_comments_for_media(
     limit: int = 50,
     max_comments: int = 200,
 ) -> tuple[list[dict[str, Any]], str]:
-    bases = [INSTAGRAM_GRAPH_BASE, FACEBOOK_GRAPH_BASE]
+    comments: list[dict[str, Any]] = []
     last_error = ""
 
-    for base in bases:
-        comments: list[dict[str, Any]] = []
-        url = f"{base}/{media_id}/comments"
-        params = {
-            "fields": "id,text,username,timestamp",
-            "limit": limit,
-            "filter": "stream",
-            "order": "reverse_chronological",
-            "access_token": token,
-        }
+    # Strategy A: direct comments edge
+    url = f"{INSTAGRAM_GRAPH_BASE}/{media_id}/comments"
+    params = {
+        "fields": "id,text,username,timestamp",
+        "limit": limit,
+        "access_token": token,
+    }
+    while url and len(comments) < max_comments:
+        request_params = params if params else None
+        try:
+            res = client.get(url, params=request_params)
+        except Exception as exc:  # noqa: BLE001
+            last_error = str(exc)
+            break
 
-        while url and len(comments) < max_comments:
-            request_params = params if params else None
-            try:
-                res = client.get(url, params=request_params)
-            except Exception as exc:  # noqa: BLE001
-                last_error = str(exc)
-                break
+        if res.status_code != 200:
+            last_error = res.text[:260]
+            break
 
-            if res.status_code != 200:
-                last_error = res.text[:220]
-                break
+        page = res.json() or {}
+        batch = page.get("data", [])
+        comments.extend(batch)
+        paging = page.get("paging", {})
+        url = paging.get("next")
+        params = None
 
-            page = res.json() or {}
-            batch = page.get("data", [])
-            comments.extend(batch)
-            paging = page.get("paging", {})
-            url = paging.get("next")
-            params = None
+    if comments:
+        return comments[:max_comments], ""
 
-        if comments:
-            return comments, ""
+    # Strategy B: nested comments edge in media fields (some app configs behave better here)
+    try:
+        res = client.get(
+            f"{INSTAGRAM_GRAPH_BASE}/{media_id}",
+            params={
+                "fields": "comments.limit(50){id,text,username,timestamp}",
+                "access_token": token,
+            },
+        )
+        if res.status_code == 200:
+            data = (res.json() or {}).get("comments", {}).get("data", [])
+            if data:
+                return data[:max_comments], ""
+        else:
+            last_error = res.text[:260]
+    except Exception as exc:  # noqa: BLE001
+        last_error = str(exc)
 
     return [], last_error
 
