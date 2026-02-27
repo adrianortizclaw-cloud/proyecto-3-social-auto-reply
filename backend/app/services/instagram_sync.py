@@ -21,26 +21,6 @@ def _to_datetime(value: str | None) -> datetime:
         return datetime.utcnow()
 
 
-def _fetch_insights(client: httpx.Client, user_id: str, token: str) -> dict[str, Any]:
-    try:
-        res = client.get(
-            f"{INSTAGRAM_GRAPH_BASE}/{user_id}/insights",
-            params={
-                "metric": "impressions,reach,profile_views,engagement,follower_count",
-                "period": "day",
-                "access_token": token,
-            },
-        )
-        if res.status_code != 200:
-            logger.info("insights not available for user=%s status=%s", user_id, res.status_code)
-            return {}
-        data = res.json().get("data", [])
-        return {item.get("name"): item.get("values", []) for item in data}
-    except Exception as exc:  # noqa: BLE001
-        logger.info("unable to fetch instagram insights for %s: %s", user_id, exc)
-        return {}
-
-
 def _normalize_media_details(item: dict[str, Any], fetched_comments: int, comment_error: str = "") -> dict[str, Any]:
     caption = (item.get("caption") or "").strip()
     return {
@@ -166,7 +146,6 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
     media_items: list[dict[str, Any]] = []
     media_details: list[dict[str, Any]] = []
     stories_data: list[dict[str, Any]] = []
-    insights_data: dict[str, Any] = {}
     user_profile: dict[str, Any] = {}
 
     with httpx.Client(timeout=20.0) as client:
@@ -284,8 +263,6 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.info("stories fetch failed for %s: %s", ig_user_id, exc)
 
-        insights_data = _fetch_insights(client, ig_user_id, token)
-
     summary = {
         "stories": len(stories_data),
         "reels": reel_count,
@@ -302,7 +279,6 @@ def sync_instagram(db: Session, account: SocialAccount) -> dict[str, Any]:
         "created_comments": created_comments,
         "media_seen": len(media_items),
         "media_summary": summary,
-        "insights": insights_data,
         "media_details": media_details,
         "stories": stories_data,
         "synced_at": synced_at,

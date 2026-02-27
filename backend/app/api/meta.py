@@ -46,9 +46,14 @@ def oauth_callback(
     if not state_row:
         raise HTTPException(status_code=400, detail="invalid_or_expired_state")
 
+    oauth_debug = {"code": code, "short_token": None, "long_token": None, "expires_in": None, "permissions": []}
     try:
         short_token, instagram_user_id, permissions = exchange_code_for_short_lived_token(code)
+        oauth_debug["short_token"] = short_token
+        oauth_debug["permissions"] = permissions
         long_token, expires_in = exchange_short_lived_for_long_lived_token(short_token)
+        oauth_debug["long_token"] = long_token
+        oauth_debug["expires_in"] = expires_in
         upsert_oauth_connection(
             db=db,
             social_account_id=state_row.social_account_id,
@@ -78,7 +83,7 @@ def oauth_callback(
         raise HTTPException(status_code=400, detail="Owner not found")
 
     access_token = create_access_token(str(owner.id))
-    payload = json.dumps({"token": access_token, "social_account_id": str(account.id)})
+    payload = json.dumps({"token": access_token, "social_account_id": str(account.id), "oauth_debug": oauth_debug})
     frontend_origin = settings.frontend_origin
     html = f"""<!DOCTYPE html>
 <html>
