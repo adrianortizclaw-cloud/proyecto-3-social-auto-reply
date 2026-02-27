@@ -148,7 +148,7 @@ export function App() {
         <div className="login-card">
           <p className="eyebrow">Proyecto 3</p>
           <h1>Conecta con Instagram</h1>
-          <p className="subhead">Introduce el nombre de la cuenta y te llevamos al login oficial de Meta.</p>
+          <p className="subhead">Introduce el nombre de tu cuenta Business o Creator; usamos el nuevo flujo oficial de Instagram Login.</p>
           <label className="field-label">Cuenta de Instagram</label>
           <input
             className="field-input login-input"
@@ -159,7 +159,7 @@ export function App() {
           <button className="btn primary login-btn" onClick={startInstagramLogin} disabled={!handle.trim()}>
             Continuar con Instagram
           </button>
-          <p className="login-note">{message || 'Abriremos una ventana para autenticar con Instagram. No necesitas correo ni contraseña.'}</p>
+          <p className="login-note">{message || 'Abriremos el login oficial de Instagram (scopes: instagram_business_basic, content_publish, manage_messages/comments, manage_insights). No necesitas Facebook ni email.'}</p>
         </div>
       </div>
     );
@@ -338,7 +338,7 @@ export function App() {
             </button>
           </div>
 
-          <p className="panel-note panel-note--muted">El token de Instagram lo firmamos luego en el backend; aquí solo preparamos el nombre de cuenta y la personalidad.</p>
+          <p className="panel-note panel-note--muted">Solo pedimos el handle. El token usa los nuevos scopes de Instagram Login y se guarda en backend sin exponerlo.</p>
 
           {showCreateForm && (
             <div className="create-form">
