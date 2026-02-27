@@ -22,3 +22,4 @@ class InstagramLoginRequest(BaseModel):
 class InstagramStartResponse(BaseModel):
     url: str
     account_id: int
+    callback_origin: str | None = None

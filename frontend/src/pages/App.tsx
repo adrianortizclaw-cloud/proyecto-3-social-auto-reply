@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, setToken } from '../services/api';
 
 type Account = {
@@ -22,6 +22,7 @@ export function App() {
   const [connectingAccountId, setConnectingAccountId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const backendOrigin = new URL(import.meta.env.VITE_API_BASE || 'http://localhost:8000').origin;
+  const callbackOriginsRef = useRef<Set<string>>(new Set([backendOrigin]));
 
   useEffect(() => {
     setToken(token);
@@ -37,7 +38,7 @@ export function App() {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== backendOrigin) {
+      if (!callbackOriginsRef.current.has(event.origin)) {
         return;
       }
       const data = event.data || {};
@@ -83,6 +84,9 @@ export function App() {
     }
     try {
       const { data } = await api.post('/api/auth/instagram/start', { handle: normalized });
+      if (data.callback_origin) {
+        callbackOriginsRef.current.add(data.callback_origin);
+      }
       const popup = window.open(data.url, 'instagram-login', 'width=600,height=700');
       if (!popup) {
         setMessage('Permite popups para continuar con Instagram.');

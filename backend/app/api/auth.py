@@ -2,7 +2,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import secrets
+from urllib.parse import urlparse
 
+from app.core.config import settings
 from app.core.security import hash_password, verify_password, create_access_token
 from app.db.session import get_db
 from app.models.models import User, SocialAccount
@@ -100,4 +102,8 @@ def instagram_start(payload: InstagramLoginRequest, db: Session = Depends(get_db
     except ValueError as exc:
         logger.error("build oauth failed: %s", str(exc))
         raise HTTPException(status_code=500, detail=str(exc))
-    return InstagramStartResponse(url=url, account_id=account.id)
+    parsed_redirect = urlparse(settings.meta_redirect_uri)
+    callback_origin = None
+    if parsed_redirect.scheme and parsed_redirect.netloc:
+        callback_origin = f"{parsed_redirect.scheme}://{parsed_redirect.netloc}"
+    return InstagramStartResponse(url=url, account_id=account.id, callback_origin=callback_origin)
