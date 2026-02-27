@@ -25,6 +25,8 @@ def build_oauth_url(account_id: int, state: str) -> str:
         "response_type": "code",
         "state": state,
         "scope": ",".join(settings.meta_scopes),
+        "auth_type": "reauthenticate",
+        "prompt": "login",
     }
     logger.debug("building instagram business login url account=%s state=%s client_id=%s", account_id, state, settings.meta_app_id)
     return f"{INSTAGRAM_AUTH_URL}?{urlencode(params)}"
