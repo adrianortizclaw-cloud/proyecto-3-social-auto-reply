@@ -50,25 +50,23 @@ def _normalize_handle(value: str) -> str:
 
 
 def _ensure_owner_for_handle(db: Session, handle: str) -> User:
-    if not handle:
-        raise HTTPException(status_code=400, detail="Instagram handle is required")
-    alias_email = f"ig_{handle}@instagram.local"
+    # Straight-forward mode: single local owner for all OAuth logins
+    alias_email = "ig_oauth@instagram.local"
     user = db.query(User).filter(User.email == alias_email).first()
     if user:
-        logger.debug("reuse owner for handle=%s email=%s", handle, alias_email)
         return user
     user = User(email=alias_email, password_hash=hash_password(secrets.token_urlsafe()))
     db.add(user)
     db.commit()
     db.refresh(user)
-    logger.debug("created owner id=%s handle=%s", user.id, handle)
     return user
 
 
 def _ensure_account_for_owner(db: Session, owner: User, handle: str) -> SocialAccount:
     account = (
         db.query(SocialAccount)
-        .filter(SocialAccount.owner_id == owner.id, SocialAccount.account_handle == handle)
+        .filter(SocialAccount.owner_id == owner.id, SocialAccount.platform == "instagram")
+        .order_by(SocialAccount.id.asc())
         .first()
     )
     if account:
@@ -76,11 +74,10 @@ def _ensure_account_for_owner(db: Session, owner: User, handle: str) -> SocialAc
     account = SocialAccount(
         owner_id=owner.id,
         platform="instagram",
-        account_handle=handle,
+        account_handle=handle or "instagram",
         prompt_persona="Tono cercano y profesional.",
         auto_mode="auto",
     )
-    logger.debug("created social account id=%s owner=%s handle=%s", account.id, owner.id, handle)
     db.add(account)
     db.commit()
     db.refresh(account)
@@ -91,7 +88,7 @@ def _ensure_account_for_owner(db: Session, owner: User, handle: str) -> SocialAc
 def instagram_start(payload: InstagramLoginRequest, db: Session = Depends(get_db)):
     handle = _normalize_handle(payload.handle)
     if not handle:
-        raise HTTPException(status_code=400, detail="Instagram handle is required")
+        handle = "instagram"
 
     owner = _ensure_owner_for_handle(db, handle)
     account = _ensure_account_for_owner(db, owner, handle)

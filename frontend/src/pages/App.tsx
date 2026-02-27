@@ -3,7 +3,6 @@ import { api, setToken } from '../services/api';
 
 export function App() {
   const [token, setAuthToken] = useState<string | null>(localStorage.getItem('token'));
-  const [handle, setHandle] = useState('');
   const [accountId, setAccountId] = useState<number | null>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [syncPayload, setSyncPayload] = useState<any>(null);
@@ -44,8 +43,7 @@ export function App() {
 
   const login = async () => {
     try {
-      const normalized = handle.trim().replace(/^@/, '');
-      const { data } = await api.post('/api/auth/instagram/start', { handle: normalized });
+      const { data } = await api.post('/api/auth/instagram/start', { handle: 'instagram' });
       pushLog('oauth_start_url', data);
       window.open(data.url, 'ig-login', 'width=650,height=800');
     } catch (err: any) {
@@ -73,13 +71,7 @@ export function App() {
     return (
       <div style={{ padding: 20, fontFamily: 'monospace' }}>
         <h2>Login</h2>
-        <input
-          placeholder="@usuario"
-          value={handle}
-          onChange={(e) => setHandle(e.target.value)}
-          style={{ width: 320, marginRight: 8 }}
-        />
-        <button onClick={login} disabled={!handle.trim()}>
+        <button onClick={login}>
           Logearse con Facebook
         </button>
         <h3>Log JSON</h3>
