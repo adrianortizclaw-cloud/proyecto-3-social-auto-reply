@@ -21,6 +21,7 @@ export function App() {
   const [handle, setHandle] = useState('');
   const [persona, setPersona] = useState('Tono cercano, profesional y rápido.');
   const [connectingAccountId, setConnectingAccountId] = useState<number | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
     setToken(token);
@@ -234,37 +235,8 @@ export function App() {
         ))}
       </div>
 
-      <section className="client-grid">
-        <article className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="panel-eyebrow">Onboarding rápido</p>
-              <h2>Conecta un nuevo cliente</h2>
-              <p className="panel-subhead">Solo necesitas el handle o ID. Nosotros generamos el token de Instagram y lo guardamos seguro.</p>
-            </div>
-          </div>
-
-          <label className="field-label">Cuenta</label>
-          <div className="input-row">
-            <select className="field-input" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-              <option value="instagram">Instagram</option>
-              <option value="facebook">Facebook</option>
-              <option value="x">X</option>
-            </select>
-            <input className="field-input" placeholder="@nombre_cliente o ID numérico" value={handle} onChange={(e) => setHandle(e.target.value)} />
-          </div>
-
-          <label className="field-label">Tono sugerido</label>
-          <textarea className="field-input" value={persona} onChange={(e) => setPersona(e.target.value)} rows={3} />
-
-          <div className="panel-foot">
-            <p className="panel-note">Nuestro backend guarda el app secret y la clave de OpenAI en .env. El token de Instagram se obtiene via OAuth y nunca sale de la base de datos.</p>
-          </div>
-
-          <button className="btn primary" onClick={createAccount} disabled={!handle}>Guardar y preparar</button>
-        </article>
-
-        <article className="panel panel--accent">
+      <section className="client-grid client-grid--stack">
+        <article className="panel panel--accent accounts-panel">
           <div className="panel-head">
             <div>
               <p className="panel-eyebrow">Cuentas activas</p>
@@ -322,6 +294,40 @@ export function App() {
                   Actualizar cuentas
                 </button>
               </div>
+            </div>
+          )}
+        </article>
+
+        <article className="panel create-panel">
+          <div className="panel-head">
+            <div>
+              <p className="panel-eyebrow">Agregar nuevas cuentas</p>
+              <h2>Se hace solo 1-2 veces</h2>
+              <p className="panel-subhead">Activamos este formulario cuando realmente necesites trackear otra cuenta.</p>
+            </div>
+            <button className="btn ghost" onClick={() => setShowCreateForm((prev) => !prev)}>
+              {showCreateForm ? 'Ocultar formulario' : 'Abrir formulario'}
+            </button>
+          </div>
+
+          <p className="panel-note panel-note--muted">El token de Instagram lo firmamos luego en el backend; aquí solo preparamos el nombre de cuenta y la personalidad.</p>
+
+          {showCreateForm && (
+            <div className="create-form">
+              <label className="field-label">Cuenta</label>
+              <div className="input-row">
+                <select className="field-input" value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="x">X</option>
+                </select>
+                <input className="field-input" placeholder="@nombre_cliente o ID numérico" value={handle} onChange={(e) => setHandle(e.target.value)} />
+              </div>
+
+              <label className="field-label">Tono sugerido</label>
+              <textarea className="field-input" value={persona} onChange={(e) => setPersona(e.target.value)} rows={3} />
+
+              <button className="btn primary" onClick={createAccount} disabled={!handle}>Guardar y preparar</button>
             </div>
           )}
         </article>
