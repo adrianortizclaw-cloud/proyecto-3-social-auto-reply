@@ -241,13 +241,6 @@ export function App() {
     synced_comments: syncSummary?.synced_comments ?? 0,
   };
 
-  const summaryCards = [
-    { label: 'Historias', value: summaryData.stories },
-    { label: 'Reels', value: summaryData.reels },
-    { label: 'Publicaciones', value: summaryData.posts },
-    { label: 'Likes totales', value: summaryData.total_likes },
-  ];
-
   const graphMetrics = [
     { label: 'Posts', value: summaryData.posts },
     { label: 'Reels', value: summaryData.reels },
@@ -255,6 +248,10 @@ export function App() {
     { label: 'Likes', value: summaryData.total_likes },
   ];
   const maxGraphValue = Math.max(...graphMetrics.map((metric) => metric.value), 1);
+
+  const mediaDetails = lastSyncData?.media_details || [];
+  const reelMedia = mediaDetails.filter((media: any) => ['VIDEO', 'REEL'].includes(String(media.type || '').toUpperCase()));
+  const postMedia = mediaDetails.filter((media: any) => !['VIDEO', 'REEL'].includes(String(media.type || '').toUpperCase()));
 
   const graphInsightCards = graphInsights
     ? Object.entries(graphInsights).map(([name, values]) => {
@@ -302,15 +299,6 @@ export function App() {
           </button>
         </div>
       </header>
-
-      <div className="stats-row">
-        {summaryCards.map((stat) => (
-          <article key={stat.label} className="stat-card">
-            <div className="stat-value">{stat.value}</div>
-            <p className="stat-label">{stat.label}</p>
-          </article>
-        ))}
-      </div>
 
       <section className="graph-row">
         {graphMetrics.map((metric) => (
@@ -362,23 +350,35 @@ export function App() {
         </div>
 
         <div className="activity-grid">
-          <article className="activity-card">
+          <article className="activity-card activity-card--stretch">
             <h3>Publicaciones</h3>
-            <ul className="activity-list">
-              {posts.map((x: any) => (
-                <li key={x.id}>
-                  <strong>{x.text ? x.text.slice(0, 60) : '(sin caption)'}</strong>
-                  <p className="small">{x.created_at}</p>
-                </li>
-              ))}
-              {!posts.length && <li className="activity-empty">Sin publicaciones por ahora.</li>}
-            </ul>
+            {postMedia.length ? (
+              <div className="media-grid">
+                {postMedia.map((media: any) => (
+                  <article key={media.id} className="media-preview-card">
+                    <div
+                      className="media-preview-thumb"
+                      style={media.media_url ? { backgroundImage: `url(${media.media_url})` } : undefined}
+                    >
+                      {!media.media_url && <span>Sin preview</span>}
+                    </div>
+                    <p className="media-caption">{media.caption || '(sin caption)'}</p>
+                    <p className="media-meta">{media.comments_fetched}/{media.comment_count} comentarios · {media.like_count} likes</p>
+                    {media.permalink && (
+                      <a className="media-link" href={media.permalink} target="_blank" rel="noreferrer">Ver publicación</a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="activity-empty">Sin publicaciones recientes en el último sync.</p>
+            )}
           </article>
           <article className="activity-card activity-card--stretch">
             <h3>Reels + historias</h3>
-            {lastSyncData?.media_details?.length ? (
+            {reelMedia.length ? (
               <div className="media-grid">
-                {lastSyncData.media_details.map((media: any) => (
+                {reelMedia.map((media: any) => (
                   <article key={media.id} className="media-preview-card">
                     <div
                       className="media-preview-thumb"
@@ -453,7 +453,7 @@ export function App() {
                   );
                 })
               ) : (
-                <p className="activity-empty">Los comentarios se llenan tras la primera sincronización.</p>
+                <p className="activity-empty">No hay comentarios sincronizados todavía.</p>
               )}
             </div>
           </article>
