@@ -57,8 +57,11 @@ def _extract_short_token_payload(payload: dict) -> tuple[str, str, list[str]]:
         info = payload
     access_token = info.get("access_token")
     user_id = str(info.get("user_id") or info.get("instagram_user_id") or "").strip()
-    permissions_raw = info.get("permissions") or ""
-    permissions = [scope.strip() for scope in permissions_raw.split(",") if scope.strip()]
+    permissions_value = info.get("permissions") or ""
+    if isinstance(permissions_value, list):
+        permissions = [str(scope).strip() for scope in permissions_value if str(scope).strip()]
+    else:
+        permissions = [scope.strip() for scope in str(permissions_value).split(",") if scope.strip()]
     return access_token, user_id, permissions
 
 
