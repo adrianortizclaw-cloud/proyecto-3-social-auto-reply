@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, accounts, dashboard, meta, sync, webhooks, replies, admin
+from app.api.instagram import router as instagram_router
 from app.core.config import settings
 from app.db.session import Base, engine
+from app.models import models  # noqa: F401 - ensure models are registered
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Social Auto Reply API", version="0.1.0")
+app = FastAPI(title="Instagram Wrapper API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,14 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(accounts.router)
-app.include_router(dashboard.router)
-app.include_router(meta.router)
-app.include_router(sync.router)
-app.include_router(webhooks.router)
-app.include_router(replies.router)
-app.include_router(admin.router)
+app.include_router(instagram_router)
 
 
 @app.get("/health")

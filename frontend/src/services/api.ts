@@ -6,10 +6,10 @@ export const api = axios.create({
   baseURL: API_BASE,
 });
 
-export function setToken(token: string | null) {
-  if (!token) {
-    delete api.defaults.headers.common.Authorization;
+export function setSessionHeader(sessionId: string | null) {
+  if (!sessionId) {
+    delete api.defaults.headers.common['X-Session-Id'];
     return;
   }
-  api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  api.defaults.headers.common['X-Session-Id'] = sessionId;
 }

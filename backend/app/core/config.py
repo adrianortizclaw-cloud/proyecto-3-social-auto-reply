@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     meta_scopes_csv: str = "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments"
     meta_webhook_verify_token: str = "dev-meta-webhook-token"
 
+    instagram_app_id: str = ""
+    instagram_app_secret: str = ""
+    instagram_callback_url: str = "http://localhost:8000/api/instagram/callback"
+    instagram_graph_version: str = "v21.0"
+
     @field_validator("app_secret_key")
     @classmethod
     def validate_secret_key(cls, v: str):
